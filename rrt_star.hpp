@@ -7,15 +7,15 @@
 
 class RRT_Star{
     public:
-        RRT_Star(State& _s_init, State& _s_goal, cv::Mat& _image, State& _origin, double& _resolution, Segments& _obstacles_segments){
-            s_init = _s_init;
-            s_goal = _s_goal;
-            image = _image;
-            origin = _origin;
-            resolution = _resolution;
-            width = _image.cols;
-            height = _image.rows;
-            obstacles_segments = _obstacles_segments;
+        RRT_Star(State& s_init, State& s_goal, cv::Mat& image, State& origin, double& resolution, Segments& obstacles_segments){
+            this->s_init = s_init;
+            this->s_goal = s_goal;
+            this->image = image;
+            this->origin = origin;
+            this->resolution = resolution;
+            this->width = image.cols;
+            this->height = image.rows;
+            this->obstacles_segments = obstacles_segments;
         }
         RRT_Star(){}
         Path build(); /// Tree generation.

@@ -7,14 +7,14 @@ extern nlohmann::json settings;
 
 class Map{
     public:
-        Map(cv::Mat& _image, State& _origin, double& _resolution){
-            image = _image;
-            origin = _origin;
-            resolution = _resolution;
-            width = _image.cols;
-            height = _image.rows;
-            dilation = settings["MAP_obstacles_dilation"];
-            epsilon = settings["MAP_epsilon"]; 
+        Map(cv::Mat& image, State& _origin, double& _resolution){
+            this->image = image;
+            this->origin = origin;
+            this->resolution = resolution;
+            this->width = image.cols;
+            this->height = image.rows;
+            this->dilation = settings["MAP_obstacles_dilation"];
+            this->epsilon = settings["MAP_epsilon"]; 
         }
         Map(){} /// Default class constructor.
         Segments find_segments(); /// Returns the segments of polygons that make up obstacles.
