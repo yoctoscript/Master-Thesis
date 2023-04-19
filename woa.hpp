@@ -6,23 +6,42 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
+extern nlohmann::json settings;
+
 class WOA
 {
     public:
-        WOA(Path path)
+        WOA(State sInit, State sGoal)
         {
-            this->path = path;
+            this->sInit = sInit;
+            this->sGoal = sGoal;
+            this->a = settings["WOA_a"];
+            this->population = settings["WOA_population"];
+            this->iterations = settings["WOA_iterations"];
         }
-        Path optimize(Path);
+        void InitializePopulation();
+        State CalculateFitness();
+        void CircleUpdate(State&);
+        void SpiralUpdate(State&);
+        void RandomUpdate(State&);
+        void CheckBoundary();
+        State Optimize();
+
     private:
-        Path path;
+        State sInit;
+        State sGoal;
         int population;
         int iterations;
         double explorationFactor;
-        double SpiralParameter;
+        double spiralParameter;
         double probabilityParameter;
         double lowerBound;
         double upperBound;
+        double a;
+        State* whalesArray;
+
+        double GenerateRandom(double a, double b);
+        int GenerateRandom(int a, int b);
 };
 
 
