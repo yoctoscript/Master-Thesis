@@ -56,12 +56,12 @@ Path RRT_Star::build(){
 
 void RRT_Star::initialize(){
     int _iterations = settings["RRT*_iterations"];
-    double _time_step = settings["RRT*_time_step"];
-    double _linear_velocity = settings["RRT*_linear_velocity"];
+    long double _time_step = settings["RRT*_time_step"];
+    long double _linear_velocity = settings["RRT*_linear_velocity"];
     nlohmann::json _angular_velocity = settings["RRT*_angular_velocity"];
-    double _search_radius = settings["RRT*_search_radius"];
-    double _max_steering_angle = settings["RRT*_max_steering_angle"];
-    double _goal_threshold = settings["RRT*_goal_threshold"];
+    long double _search_radius = settings["RRT*_search_radius"];
+    long double _max_steering_angle = settings["RRT*_max_steering_angle"];
+    long double _goal_threshold = settings["RRT*_goal_threshold"];
     iterations = _iterations;
     time_step = _time_step;
     linear_velocity = _linear_velocity;
@@ -105,9 +105,9 @@ State* RRT_Star::find_nearest(State& s_rand){
 
 State RRT_Star::steer(State* s_near, State& s_rand){
     static Logger log(__FUNCTION__);
-    std::vector<double> angular_velocities = angular_velocity.get<std::vector<double>>();
+    std::vector<long double> angular_velocities = angular_velocity.get<std::vector<long double>>();
     int N = angular_velocities.size();
-    double angular_velocity[N], distance[N], x_temp[N], y_temp[N];
+    long double angular_velocity[N], distance[N], x_temp[N], y_temp[N];
     // Copy angular velocities into the array.
     for (int i = 0; i < N; i++) {
         angular_velocity[i] = angular_velocities[i];
@@ -394,26 +394,26 @@ Velocity RRT_Star::inverse_odometry(State& s_new, State& s_old){
     return vel;
 }
 
-double RRT_Star::calculate_euclidean_distance(double& x, double& y, double& a, double& b){
+long double RRT_Star::calculate_euclidean_distance(long double& x, long double& y, long double& a, long double& b){
     return sqrt(pow(x-a, 2)+pow(y-b, 2));
 }
 
-double RRT_Star::calculate_distance(double& v){
+long double RRT_Star::calculate_distance(long double& v){
     return (v * time_step);
 }
 
-double RRT_Star::calculate_angle(double& w){
+long double RRT_Star::calculate_angle(long double& w){
     return (w * time_step);
 }
 
-void RRT_Star::swap(double *a, double *b){
+void RRT_Star::swap(long double *a, long double *b){
     double temp = *a;
     *a = *b;
     *b = temp;
     return;
 }
 
-double RRT_Star::calculate_cost(State& a, State& b){
+long double RRT_Star::calculate_cost(State& a, State& b){
     return calculate_euclidean_distance(a.x, a.y, b.x, b.y);
 }
 
@@ -429,11 +429,11 @@ bool RRT_Star::on_segment(cv::Point& p, cv::Point& q, cv::Point& r){
     return false;
 }
 
-int RRT_Star::x_convert_to_pixel(double& x){
+int RRT_Star::x_convert_to_pixel(long double& x){
     return (int)((x + (-origin.x)) / resolution);
 }
 
-int RRT_Star::y_convert_to_pixel(double& y){
+int RRT_Star::y_convert_to_pixel(long double& y){
     return (int)((y + (-origin.y)) / resolution);
 }
 
@@ -451,11 +451,11 @@ bool RRT_Star::do_intersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Poi
     return false;
 }
 
-double RRT_Star::get_random(double& a){
-    double lower_bound = a;
-    double upper_bound = -a;
+long double RRT_Star::get_random(long double& a){
+    long double lower_bound = a;
+    long double upper_bound = -a;
     std::default_random_engine re{std::random_device{}()};
-    std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
+    std::uniform_real_distribution<long double> unif(lower_bound, upper_bound);
     return unif(re);
 }
 

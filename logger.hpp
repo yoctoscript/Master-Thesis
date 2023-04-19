@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#define LOGGER_LEVEL spdlog::level::debug
+#define LOGGER_LEVEL spdlog::level::trace
 
 class Logger{
     public:

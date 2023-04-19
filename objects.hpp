@@ -6,35 +6,35 @@
 
 class State{
     public:
-        State(State* p_val, double x_val, double y_val, double t_val, double v_val, double w_val, double c_val){
-            p = p_val;
-            x = x_val;
-            y = y_val;
-            t = t_val;
-            v = v_val;
-            w = w_val;
-            c = c_val;
+        State(State* p, long double x, long double y, long double t, long double v, long double w, long double c){
+            this->p = p;
+            this->x = x;
+            this->y = y;
+            this->t = t;
+            this->v = v;
+            this->w = w;
+            this->c = c;
         }
-        State(double x_val, double y_val){
-            x = x_val;
-            y = y_val;
+        State(long double x, long double y){
+            this->x = x;
+            this->y = y;
         }
         State(){}
         // ---
         State* p; // Pointer to parent state.
-        double x; // X-axis coordinate.
-        double y; // Y-axis coordinate.
-        double t; // Z-axis orientation.
-        double v; // Linear velocity
-        double w; // Angular velocity
-        double c; // Cost
+        long double x; // X-axis coordinate.
+        long double y; // Y-axis coordinate.
+        long double t; // Z-axis orientation.
+        long double v; // Linear velocity
+        long double w; // Angular velocity
+        long double c; // Cost
 };
 
 class Segment{
     public:
-        Segment(cv::Point& p_val, cv::Point& q_val){
-            p = p_val;
-            q = q_val;
+        Segment(cv::Point& p, cv::Point& q){
+            this->p = p;
+            this->q = q;
         }
         Segment(){}
         cv::Point p; /// First point.
@@ -43,8 +43,8 @@ class Segment{
 
 class Velocity{
     public:
-        double v; /// Linear velocity.
-        double w; /// Angular velocity.
+        long double v; /// Linear velocity.
+        long double w; /// Angular velocity.
 };
 
 class Path{
