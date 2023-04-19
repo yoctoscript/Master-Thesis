@@ -13,11 +13,15 @@ class WOA
     public:
         WOA(State sInit, State sGoal)
         {
+            static Logger log(__FUNCTION__);
             this->sInit = sInit;
             this->sGoal = sGoal;
-            this->a = settings["WOA_a"];
+            this->_a = settings["WOA_a"];
             this->population = settings["WOA_population"];
-            this->iterations = settings["WOA_iterations"];
+            this->_iterations = settings["WOA_iterations"];
+            this->a = this->_a;
+            this->iterations = this->_iterations;
+            log.trace("a: {:.2f} | population: {} | iterations {}", this->_a, this->population, this->iterations);
         }
         State Optimize();
     private:
@@ -55,7 +59,7 @@ class WOA
         void RenderParticles();
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
-
+        void CleanUp();
 
 
 };
