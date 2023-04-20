@@ -19,6 +19,10 @@ class WOA
             this->_a = settings["WOA_a"];
             this->population = settings["WOA_population"];
             this->_iterations = settings["WOA_iterations"];
+            this->linearVelocityMin = settings["WOA_linear_velocity_min"];
+            this->linearVelocityMax = settings["WOA_linear_velocity_max"];
+            this->angularVelocityMin = settings["WOA_angular_velocity_min"];
+            this->angularVelocityMax = settings["WOA_angular_velocity_max"];
             this->a = this->_a;
             this->iterations = this->_iterations;
             log.trace("a: {:.2f} | population: {} | iterations {}", this->_a, this->population, this->iterations);
@@ -42,6 +46,10 @@ class WOA
         long double l;
         long double b;
         int i;
+        long double linearVelocityMin;
+        long double linearVelocityMax;
+        long double angularVelocityMin;
+        long double angularVelocityMax;
         State* whales; /// Array of particles.
         /// Methods.
         void InitializePopulation();

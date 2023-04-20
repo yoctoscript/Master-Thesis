@@ -1,5 +1,6 @@
 #include "woa.hpp"
 #include "logger.hpp"
+#include "objects.hpp"
 #include <vector>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -10,7 +11,7 @@
 State WOA::Optimize()
 {
     static Logger log(__FUNCTION__);
-    log.debug("WOA optimization initiated ..");
+    log.debug("Whale Optimization Algorithm");
     log.debug("InitializePopulation()");
     InitializePopulation();
     log.debug("CalculateFitness()");
@@ -21,9 +22,9 @@ State WOA::Optimize()
         {
             log.debug("CoefficientUpdate()");
             CoefficientUpdate();
-            if ((this->p) < 1.0L)
+            if ((this->p) < 0.5L)
             {
-                if (fabs(this->A) < 1.0L)
+                if (fabs(this->A) < 0.5L)
                 {
                     log.debug("CircleUpdate()");
                     CircleUpdate();
@@ -56,14 +57,10 @@ void WOA::InitializePopulation()
 {
     static Logger log(__FUNCTION__);
     this->whales = new State[this->population];
-    long double linearVelocityMin = 0.0L;
-    long double linearVelocityMax = 25.0L;
-    long double angularVelocityMin = -2.0L;
-    long double angularVelocityMax = 2.0L;
     for (int i = 0; i < this->population; ++i)
     {
-        long double linearVelocity = GenerateRandom(linearVelocityMin, linearVelocityMax);
-        long double angularVelocity = GenerateRandom(angularVelocityMin, angularVelocityMax);
+        long double linearVelocity = GenerateRandom(this->linearVelocityMin, this->linearVelocityMax);
+        long double angularVelocity = GenerateRandom(this->angularVelocityMin, this->angularVelocityMax);
         this->whales[i].v = linearVelocity;
         this->whales[i].w = angularVelocity;
         log.trace("Whale {} (Linear: {:.2f}, Angular: {:.2f})", i, this->whales[i].v, this->whales[i].w);
