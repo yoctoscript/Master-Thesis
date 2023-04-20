@@ -153,7 +153,25 @@ void WOA::SpiralUpdate()
 void WOA::CheckBoundary()
 {
     static Logger log(__FUNCTION__);
-    log.trace("Checking boundaries");
+    for (int i = 0; i < this->population; ++i)
+    {
+        if (this->whales[i].v > this->linearVelocityMax)
+        {
+            this->whales[i].v = this->linearVelocityMax;
+        }
+        else if (this->whales[i].v < this->linearVelocityMin)
+        {
+            this->whales[i].v = this->linearVelocityMin;
+        }
+        if (this->whales[i].w > this->angularVelocityMax)
+        {
+            this->whales[i].w = this->angularVelocityMax;
+        }
+        else if (this->whales[i].w < this->angularVelocityMin)
+        {
+            this->whales[i].w = this->angularVelocityMin;
+        }
+    }
 }
 
 void WOA::RenderParticles()
@@ -176,6 +194,11 @@ void WOA::RenderParticles()
     cv::Point goal(x, y);
     circle(image, goal, 3, cv::Scalar(0, 255, 0), -1, cv::LINE_AA);
 
+    /// Init configuration
+    x = XConvertToPixel(this->sInit.x);
+    y = YConvertToPixel(this->sInit.y);
+    cv::Point init(x, y);
+    circle(image, init, 3, cv::Scalar(255, 255, 0), -1, cv::LINE_AA);
 
 
     cv::imshow("RRT*", image);
