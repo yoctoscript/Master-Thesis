@@ -16,6 +16,7 @@
 #include <nlohmann/json.hpp>
 
 extern nlohmann::json settings;
+extern Map map;
 
 Path RRT_Star::build(){
     static Logger log(__FUNCTION__);

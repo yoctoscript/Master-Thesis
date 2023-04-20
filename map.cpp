@@ -1,8 +1,9 @@
 #include <opencv2/opencv.hpp>
 #include "map.hpp"
+#include "objects.hpp"
 #include "logger.hpp"
 
-Segments Map::find_segments(){
+void Map::find_segments(){
     static Logger log(__FUNCTION__);
 
     /// Performs image thresholding on a grayscale image using a threshold value of 250 and creates a binary image.
@@ -12,10 +13,10 @@ Segments Map::find_segments(){
     cv::imshow("Image", image);
     cv::imshow("Binary", binary);
 
-    /// Performs morphological dilation on a binary image using a 3x3 rectangular structuring element, repeated 'i_obstacles_width' times.
+    /// Performs morphological dilation on a binary image using a 3x3 rectangular structuring element, repeated "MAP_obstacles_dilation" times. 1:1px
     log.debug("dilate()");
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
-    for (int i = 0; i < dilation; ++i){
+    for (int i = 0; i < this->dilation; ++i){
         dilate(binary, binary, kernel);
     }
     cv::imshow("Dilated", binary);
@@ -27,54 +28,52 @@ Segments Map::find_segments(){
     findContours(binary, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
     log.debug("Contoured Objects: {}", contours.size());
 
-    cv::Mat inverted_polygon_image = cv::Mat::zeros(height, width, CV_8UC1);
-    Segments obstacles_segments;
+    cv::Mat invertedPolygonImage = cv::Mat::zeros(this->height, this->width, CV_8UC1);
     log.debug("approxPolyDP()");
     for (int i = 0; i < contours.size(); i++){
 
-        /// Approximates a contour 'contours[i]' to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'i_epsilon' times the contour's arc length. The result is stored in polygon.
+        /// Approximates a contour 'contours[i]' to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'epsilon' times the contour's arc length. The result is stored in polygon.
         std::vector<cv::Point> polygon;
-        double _epsilon = epsilon * arcLength(contours[i], true);
-        approxPolyDP(contours[i], polygon, _epsilon, true);
-        int polygon_size = polygon.size();
+        double epsilon = this->epsilon * arcLength(contours[i], true);
+        approxPolyDP(contours[i], polygon, epsilon, true);
+        int polygonSize = polygon.size();
 
         /// Checks for a single point obstacle and creates a Segment object with its coordinates as start and end points. It then adds the Segment object to a vector of obstacle segments.
-        if (polygon_size == 1){
+        if (polygonSize == 1){
             cv::Point a = polygon[0];
             Segment seg(a, a);
-            obstacles_segments.push_back(seg);
-            line(inverted_polygon_image, a, a, cv::Scalar(255), 1, cv::LINE_AA);
-            log.trace("Obstacle Point ({}, {})",a.x, a.y);
+            this->segments.push_back(seg);
+            line(invertedPolygonImage, a, a, cv::Scalar(255), 1, cv::LINE_AA);
+            log.trace("Obstacle Point ({}, {})", a.x, a.y);
         }
 
         /// Checks for a two-point obstacle and creates a Segment object with the two points as start and end points. It then adds the Segment object to a vector of obstacle segments.
-        else if (polygon_size == 2){
+        else if (polygonSize == 2){
             cv::Point a = polygon[0];
             cv::Point b = polygon[1];
             Segment seg(a, b);
-            obstacles_segments.push_back(seg);
-            line(inverted_polygon_image, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+            this->segments.push_back(seg);
+            line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
             log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
-
         }
 
         /// Checks if the polygon has more than 2 points. If so, it creates segments between each pair of adjacent points and adds them to a vector of obstacle segments.
-        else if (polygon_size > 2){
-            for (int j = 0; j < polygon_size; ++j){
+        else if (polygonSize > 2){
+            for (int j = 0; j < polygonSize; ++j){
                 if (j == 0){
-                    cv::Point b = polygon[polygon_size-1];
-                    cv::Point a = polygon[0];
+                    cv::Point a = polygon[polygonSize-1];
+                    cv::Point b = polygon[0];
                     Segment seg(a, b);
-                    obstacles_segments.push_back(seg);
-                    line(inverted_polygon_image, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+                    this->segments.push_back(seg);
+                    line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
                     log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
                 }
                 else {
                     cv::Point a = polygon[j-1];
                     cv::Point b = polygon[j];
                     Segment seg(a, b);
-                    obstacles_segments.push_back(seg);
-                    line(inverted_polygon_image, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+                    this->segments.push_back(seg);
+                    line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
                     log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
                 }
             }
@@ -82,9 +81,8 @@ Segments Map::find_segments(){
     }
 
     /// Show the result
-    cv::Mat polygon_image;
-    threshold(inverted_polygon_image, polygon_image, 128, 255, cv::THRESH_BINARY_INV);
-    imshow("Polygon", polygon_image);
-    log.debug("Total Segments: {}", obstacles_segments.size());
-    return obstacles_segments;
+    cv::Mat polygonImage;
+    threshold(invertedPolygonImage, polygonImage, 128, 255, cv::THRESH_BINARY_INV);
+    imshow("Polygon", polygonImage);
+    log.debug("Total Segments: {}", this->segments.size());
 }

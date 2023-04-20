@@ -28,7 +28,6 @@ class WOA
             log.trace("a: {:.2f} | population: {} | iterations {}", this->_a, this->population, this->iterations);
         }
         State Optimize();
-    private:
         /// Fields.
         State sInit;
         State sGoal;

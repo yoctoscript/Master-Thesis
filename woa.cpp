@@ -157,18 +157,22 @@ void WOA::CheckBoundary()
     {
         if (this->whales[i].v > this->linearVelocityMax)
         {
+            log.trace("Whale {} (Linear: {:.2f} => {:.2f})", i, this->whales[i].v, this->linearVelocityMax);
             this->whales[i].v = this->linearVelocityMax;
         }
         else if (this->whales[i].v < this->linearVelocityMin)
         {
+            log.trace("Whale {} (Linear: {:.2f} => {:.2f})", i, this->whales[i].v, this->linearVelocityMin);
             this->whales[i].v = this->linearVelocityMin;
         }
         if (this->whales[i].w > this->angularVelocityMax)
         {
+            log.trace("Whale {} (Angular: {:.2f} => {:.2f})", i, this->whales[i].w, this->angularVelocityMax);
             this->whales[i].w = this->angularVelocityMax;
         }
         else if (this->whales[i].w < this->angularVelocityMin)
         {
+            log.trace("Whale {} (Angular: {:.2f} => {:.2f})", i, this->whales[i].w, this->angularVelocityMin);
             this->whales[i].w = this->angularVelocityMin;
         }
     }
@@ -184,7 +188,7 @@ void WOA::RenderParticles()
         x = XConvertToPixel(this->whales[i].x);
         y = YConvertToPixel(this->whales[i].y);
         cv::Point p(x, y); 
-        circle(image, p, 3, cv::Scalar(0, i*255/this->population, 255), -1, cv::LINE_AA);
+        circle(image, p, 3, cv::Scalar(128, 128, 128), -1, cv::LINE_AA);
 
     }
 
@@ -192,13 +196,13 @@ void WOA::RenderParticles()
     x = XConvertToPixel(this->sGoal.x);
     y = YConvertToPixel(this->sGoal.y);
     cv::Point goal(x, y);
-    circle(image, goal, 3, cv::Scalar(0, 255, 0), -1, cv::LINE_AA);
+    circle(image, goal, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
     /// Init configuration
     x = XConvertToPixel(this->sInit.x);
     y = YConvertToPixel(this->sInit.y);
     cv::Point init(x, y);
-    circle(image, init, 3, cv::Scalar(255, 255, 0), -1, cv::LINE_AA);
+    circle(image, init, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
 
     cv::imshow("RRT*", image);
