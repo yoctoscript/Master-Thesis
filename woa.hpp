@@ -71,5 +71,13 @@ class WOA
 
 };
 
+class _WOA
+{
+    public:
+        _WOA(){}
+        std::vector<State> optimizedPath;
+        void Apply(Path path);
+};
+
 
 #endif

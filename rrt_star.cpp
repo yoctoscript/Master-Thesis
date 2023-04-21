@@ -209,7 +209,27 @@ void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors){
         double cost = sNew->c + CalculateCost(*sNew, *neighbor);
         if (cost < neighbor->c){
             Velocity velocity = InverseOdometry(*neighbor, *sNew);
-            neighbor->p = sNew;
+            State* currentParent = neighbor->p;
+            State* temp = neighbor->p = sNew;
+            bool cycle = false;
+            while (true)
+            {
+                temp = temp->p;
+                if (temp == sNew)
+                {
+                    cycle = true;
+                    break;
+                }
+                if (temp == nullptr)
+                {
+                    break;
+                }
+            }
+            if (cycle)
+            {
+                neighbor->p = currentParent;
+                continue;
+            }
             neighbor->c = cost;
             neighbor->v = velocity.v;
             neighbor->w = velocity.w;

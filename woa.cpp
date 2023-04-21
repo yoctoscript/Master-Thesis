@@ -7,6 +7,31 @@
 #include <opencv2/highgui.hpp>
 #include <random>
 
+extern nlohmann::json settings;
+
+void _WOA::Apply(Path path)
+{
+    static Logger log(__FUNCTION__);
+    optimizedPath.push_back(path.array[0]);
+    int lastValid;
+    bool encounteredObstacle;
+    long double maxSteeringAngle = settings["RRT*_max_steering_angle"];
+    for (int i = 1; i < path.size; ++i)
+    {
+        /// encounteredObstacle = TestObstacle();
+        /// respectsTurningAngle = TestAngle();
+        /// if (!encounteredObstacle and respectsTurningAngle)
+            /// mark is as valid
+        /// if i == path.length -1 || encounteredObstacle
+            /// /// state to push = WOA(optimizedPath.back(), path.array())
+            /// optimizedPath.push_back(state to push);
+            /// i = lastValid;
+    }
+    for (State s: this->optimizedPath)
+    {
+        log.trace("{} {} {}", s.x, s.y, s.z);
+    }
+}
 
 State WOA::Optimize()
 {
