@@ -77,6 +77,17 @@ class _WOA
         _WOA(){}
         std::vector<State> optimizedPath;
         void Apply(Path path);
+        bool TestCollision(State& a, State& b);
+        bool TestAngle(State& a, State& b);
+        int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
+        bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
+        int XConvertToPixel(long double& x);
+        int YConvertToPixel(long double& y);
+        bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
+
+
+
+
 };
 
 

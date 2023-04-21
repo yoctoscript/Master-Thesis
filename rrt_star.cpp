@@ -250,7 +250,7 @@ void RRT_Star::Render(Path& path){
         cv::Point p(x, y); 
         x = XConvertToPixel(b.x);
         y = YConvertToPixel(b.y);
-        cv::Point q(x, y); 
+        cv::Point q(x, y);
         line(map.image, p, q, cv::Scalar(0x97), 1, cv::LINE_AA);
     }
 
@@ -278,8 +278,9 @@ void RRT_Star::Render(Path& path){
         x = XConvertToPixel(b.x);
         y = YConvertToPixel(b.y);
         cv::Point q(x, y); 
-        line(map.image, p, q, cv::Scalar(0x3B), 2, cv::LINE_AA);
+        line(map.image, p, q, cv::Scalar(0x97), 4, cv::LINE_AA);
     }
+    
     /// Draw obstacle segments.
     for (auto& segment: map.segments){
         line(map.image, segment.p, segment.q, cv::Scalar(0x97), 1, cv::LINE_AA);
@@ -304,6 +305,8 @@ Path RRT_Star::ShortestPath(){
     /// If no path found, return.
     Path path;
     if (!bestState){
+        log.error("No path found");
+        exit(1);
         path.size = 0;
         path.array = nullptr;
         return path;
@@ -345,8 +348,6 @@ void RRT_Star::CleanUp(){
     delete this->states;
     return;
 }
-
-
 
 
 
@@ -449,9 +450,3 @@ long double RRT_Star::GenerateRandom(long double& a){
     std::uniform_real_distribution<long double> unif(lowerBound, upperBound);
     return unif(re);
 }
-
-
-
-
-
-

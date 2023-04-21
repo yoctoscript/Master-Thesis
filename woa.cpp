@@ -1,14 +1,18 @@
 #include "woa.hpp"
+#include "map.hpp"
 #include "logger.hpp"
 #include "objects.hpp"
 #include <vector>
 #include <nlohmann/json.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <random>
 
 extern nlohmann::json settings;
-
+extern Map map;
+extern cv::VideoWriter* video;
 void _WOA::Apply(Path path)
 {
     static Logger log(__FUNCTION__);
@@ -16,13 +20,39 @@ void _WOA::Apply(Path path)
     int lastValid;
     bool encounteredObstacle;
     long double maxSteeringAngle = settings["RRT*_max_steering_angle"];
+    int j = 1;
     for (int i = 1; i < path.size; ++i)
     {
-        /// encounteredObstacle = TestObstacle();
-        /// respectsTurningAngle = TestAngle();
-        /// if (!encounteredObstacle and respectsTurningAngle)
-            /// mark is as valid
-        /// if i == path.length -1 || encounteredObstacle
+        bool isFree = TestCollision(optimizedPath.back(), path.array[i]);
+        bool isSteerable = TestAngle(optimizedPath.back(), path.array[i]);
+        if (isFree && isSteerable)
+        {
+            lastValid = i;
+        }
+        if (i == (path.size - 1) || !isFree)
+        {
+            WOA woa(optimizedPath.back(), path.array[lastValid]);
+            State s = woa.Optimize();
+            s.z = path.array[lastValid].z;
+
+            int x, y;
+            State a, b;
+            a = optimizedPath.back();
+            b = s;
+            x = XConvertToPixel(a.x);
+            y = YConvertToPixel(a.y);
+            cv::Point p(x, y); 
+            x = XConvertToPixel(b.x);
+            y = YConvertToPixel(b.y);
+            cv::Point q(x, y); 
+            line(map.image, p, q, cv::Scalar(0x0), 2, cv::LINE_AA);
+
+            optimizedPath.push_back(s);
+
+            i = lastValid;
+
+           
+        }
             /// /// state to push = WOA(optimizedPath.back(), path.array())
             /// optimizedPath.push_back(state to push);
             /// i = lastValid;
@@ -30,6 +60,38 @@ void _WOA::Apply(Path path)
     for (State s: this->optimizedPath)
     {
         log.trace("{} {} {}", s.x, s.y, s.z);
+    }
+}
+
+bool _WOA::TestCollision(State& a, State& b){
+    static Logger log(__FUNCTION__);
+    int pX = XConvertToPixel(a.x);
+    int pY = YConvertToPixel(a.y);
+    cv::Point p(pX, pY);
+    int qX = XConvertToPixel(b.x);
+    int qY = YConvertToPixel(b.y);
+    cv::Point q(qX, qY);
+    for (auto& segment: map.segments){
+        if (DoIntersect(p, q, segment.p, segment.q)){
+            log.warn("Segment p({:+.2f}, {:+.2f}) q({:+.2f}, {:+.2f}) is not free", a.x, a.y, b.x, b.y);
+            return false;
+        }
+    }
+    log.trace("Segment p({:+.2f}, {:+.2f}) q({:+.2f}, {:+.2f}) is free", a.x, a.y, b.x, b.y);
+    return true;
+}
+
+bool _WOA::TestAngle(State& a, State& b)
+{
+    static Logger log(__FUNCTION__);
+    long double maxSteeringAngle = settings["RRT*_max_steering_angle"];
+    if (fabs(a.z - b.z) < maxSteeringAngle)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 
@@ -75,6 +137,7 @@ State WOA::Optimize()
     }
     log.debug("CleanUp()");
     CleanUp();
+    log.info("WOA Finished");
     return this->sBest;
 }
 
@@ -95,22 +158,22 @@ void WOA::InitializePopulation()
 void WOA::CalculateFitness()
 {
     static Logger log(__FUNCTION__);
-    double long bestFitness = 0.0L, x, y, t;
+    double long bestFitness = 0.0L, x, y, z;
     int bestIndex = 0;
     for (int i = 0; i < this->population; ++i)
     {
-        x = this->whales[i].x = (this->sInit.x) - CalculateDistance(this->whales[i].v)*sin(this->sInit.t + CalculateAngle(this->whales[i].w)/2.0l);
-        y = this->whales[i].y = (this->sInit.y) + CalculateDistance(this->whales[i].v)*cos(this->sInit.t + CalculateAngle(this->whales[i].w)/2.0l);
-        t = this->whales[i].t = (this->sInit.t) + CalculateAngle(this->whales[i].w);
+        x = this->whales[i].x = (this->sInit.x) - CalculateDistance(this->whales[i].v)*sin(this->sInit.z + CalculateAngle(this->whales[i].w)/2.0l);
+        y = this->whales[i].y = (this->sInit.y) + CalculateDistance(this->whales[i].v)*cos(this->sInit.z + CalculateAngle(this->whales[i].w)/2.0l);
+        z = this->whales[i].z = (this->sInit.z) + CalculateAngle(this->whales[i].w);
         long double distanceDifference = CalculateEuclideanDistance(x, y, this->sGoal.x, this->sGoal.y);
-        long double angleDifference = fabs(this->sGoal.t - t);
+        long double angleDifference = fabs(this->sGoal.z - z);
         long double fitness = 1 / distanceDifference; // to do (add more factors)(angle nominator: cos(alpha))
         if (fitness > bestFitness)
         {
             bestFitness = fitness;
             bestIndex = i;
         }
-        log.trace("Whale {} (x: {:.2f}, y:{:.2f}, t:{:.2f}) | Fitness: {:.2f}", i, x, y, t, fitness);
+        log.trace("Whale {} (x: {:.2f}, y:{:.2f}, z:{:.2f}) | Fitness: {:.2f}", i, x, y, z, fitness);
     }
     this->sBest = this->whales[bestIndex];
     log.trace("Best Whale: {}, Fitness: {:.2f}", bestIndex, bestFitness);
@@ -205,21 +268,21 @@ void WOA::CheckBoundary()
 
 void WOA::RenderParticles()
 {
-    cv::Mat image(500, 500, CV_8UC3, cv::Scalar(255, 255, 255));
-
+    cv::Mat image(500, 500, CV_8UC1, cv::Scalar(255, 255, 255));
+    image = map.image.clone();
     /// Draw all particles.
     int x, y;
     for (int i = 0; i < this->population; ++i){
         x = XConvertToPixel(this->whales[i].x);
         y = YConvertToPixel(this->whales[i].y);
         cv::Point p(x, y); 
-        circle(image, p, 3, cv::Scalar(128, 128, 128), -1, cv::LINE_AA);
+        circle(image, p, 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
     }
 
     /// Goal configuration
     x = XConvertToPixel(this->sGoal.x);
-    y = YConvertToPixel(this->sGoal.y);
+    y = YConvertToPixel(this->sGoal.y);      
     cv::Point goal(x, y);
     circle(image, goal, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
@@ -229,12 +292,15 @@ void WOA::RenderParticles()
     cv::Point init(x, y);
     circle(image, init, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
-
-    cv::imshow("RRT*", image);
+    cv::imshow("WOA", image);
     cv::waitKey(0);
-    char filename[256];
-    std::sprintf(filename, "frames/frame%d.jpg", this->_iterations - this->iterations);
-    cv::imwrite(filename, image);
+    
+    cv::Mat grayImage3C;
+    cv::cvtColor(image, grayImage3C, cv::COLOR_GRAY2BGR);
+
+
+    video->write(grayImage3C);
+
 }
 
 void WOA::CleanUp()
@@ -280,4 +346,38 @@ int WOA::XConvertToPixel(long double& x){
 
 int WOA::YConvertToPixel(long double& y){
     return (int)((y + (12.5L)) / 0.05L);
+}
+
+int _WOA::Orientation(cv::Point& p, cv::Point& q, cv::Point& r){
+    int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    if (val == 0) return 0;  // collinear
+    return (val > 0)? 1: 2; // clock or counterclock wise
+}
+
+bool _WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r){
+    if (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) && q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y))
+       return true;
+    return false;
+}
+
+int _WOA::XConvertToPixel(long double& x){
+    return (int)((x + (-map.origin.x)) / map.resolution);
+}
+
+int _WOA::YConvertToPixel(long double& y){
+    return (int)((y + (-map.origin.y)) / map.resolution);
+}
+
+bool _WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2){
+    int o1 = Orientation(p1, q1, p2);
+    int o2 = Orientation(p1, q1, q2);
+    int o3 = Orientation(p2, q2, p1);
+    int o4 = Orientation(p2, q2, q1);
+    if (o1 != o2 && o3 != o4)
+        return true;
+    if (o1 == 0 && OnSegment(p1, p2, q1)) return true;
+    if (o2 == 0 && OnSegment(p1, q2, q1)) return true;
+    if (o3 == 0 && OnSegment(p2, p1, q2)) return true;  
+    if (o4 == 0 && OnSegment(p2, q1, q2)) return true;
+    return false;
 }
