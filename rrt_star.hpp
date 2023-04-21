@@ -23,20 +23,20 @@ class RRT_Star{
         long double searchRadius; /// Search radius.
         long double goalThreshold; /// Goal threshold.
         long double maxSteeringAngle; /// Max Steering Angle.
-        int state_count; /// State counter.
-        State* state_array; /// State array.
+        int count; /// State counter.
+        State* states; /// State array.
         /// Methods.
         Path Build(); /// Tree generation.
         void Initialize(); /// Initialize.
         void InsertRoot(); /// Insert root.
         State SampleFreeSpace(); /// Sample free space.
-        State* FindNearest(State&); /// Find nearest.
-        State Steer(State*, State&); /// Steer.
-        bool IsObstacleFree(State&); /// Is obstacle free (Point).
-        bool IsObstacleFree(State&, State&); /// Is obstacle free (Segment).
-        std::vector<State*> GetNeighbors(State&); /// Get neighbors.
-        State* ChooseParent(State&, std::vector<State*>&); /// Choose parent.
-        State* Insert(State&, State*); /// Insert.
+        State* FindNearest(State& sRand); /// Find nearest.
+        State Steer(State* sNear, State& sRand); /// Steer.
+        bool IsObstacleFree(State& sNew); /// Is obstacle free (Point).
+        bool IsObstacleFree(State& sNew, State& sNeighbor); /// Is obstacle free (Segment).
+        std::vector<State*> GetNeighbors(State& sNew); /// Get neighbors.
+        State* ChooseParent(State& sNew, std::vector<State*>& neighbors); /// Choose parent.
+        State* Insert(State& sNew, State* sParent); /// Insert.
         void RewireTree(State*, std::vector<State*>&); /// Rewire tree.
         Path ShortestPath(void); /// Shortest path.
         void Render(Path&); /// Visualization.
@@ -53,6 +53,6 @@ class RRT_Star{
         void Swap(long double*, long double*); /// Swaps two elements of an array.
         int XConvertToPixel(long double&); /// Convert x-axis real coordinate to map coordinate
         int YConvertToPixel(long double&); /// Convert y-axis real coordinate to map coordinate
-        long double GetRandom(long double&); /// Takes a negative double and return a random number between [-arg, arg].
+        long double GenerateRandom(long double&); /// Takes a negative double and return a random number between [-arg, arg].
 };
 #endif

@@ -30,6 +30,7 @@ void Map::find_segments(){
 
     cv::Mat invertedPolygonImage = cv::Mat::zeros(this->height, this->width, CV_8UC1);
     log.debug("approxPolyDP()");
+    this->segments.clear();
     for (int i = 0; i < contours.size(); i++){
 
         /// Approximates a contour 'contours[i]' to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'epsilon' times the contour's arc length. The result is stored in polygon.
