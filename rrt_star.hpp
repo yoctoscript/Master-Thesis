@@ -37,22 +37,22 @@ class RRT_Star{
         std::vector<State*> GetNeighbors(State& sNew); /// Get neighbors.
         State* ChooseParent(State& sNew, std::vector<State*>& neighbors); /// Choose parent.
         State* Insert(State& sNew, State* sParent); /// Insert.
-        void RewireTree(State*, std::vector<State*>&); /// Rewire tree.
-        Path ShortestPath(void); /// Shortest path.
-        void Render(Path&); /// Visualization.
+        void RewireTree(State* sNew, std::vector<State*>& neighbors); /// Rewire tree.
+        Path ShortestPath(); /// Shortest path.
+        void Render(Path& path); /// Visualization.
         void CleanUp(); /// Deallocation.
         /// Helper methods.
-        long double CalculateEuclideanDistance(long double&, long double&, long double&, long double&); /// Calculate euclidean disntace.
-        long double CalculateDistance(long double&); /// Calculate distance from linear velocity.
-        long double CalculateAngle(long double&); /// Caclulate distance from angular velocity.
-        long double CalculateCost(State&, State&); /// Calculate cost.
-        Velocity InverseOdometry(State&, State&); /// Calculate velocities.
-        bool DoIntersect(cv::Point&, cv::Point&, cv::Point&, cv::Point&); /// Verify the intersection of a segment with obstacles.
-        int Orientation(cv::Point&, cv::Point&, cv::Point&); /// Returns the orientation of a triplet.
-        bool OnSegment(cv::Point&, cv::Point&, cv::Point&); /// Returns the collinearity of a triplet.
-        void Swap(long double*, long double*); /// Swaps two elements of an array.
-        int XConvertToPixel(long double&); /// Convert x-axis real coordinate to map coordinate
-        int YConvertToPixel(long double&); /// Convert y-axis real coordinate to map coordinate
-        long double GenerateRandom(long double&); /// Takes a negative double and return a random number between [-arg, arg].
+        long double CalculateEuclideanDistance(long double& aX, long double& aY, long double& bX, long double& bY); /// Calculate euclidean disntace.
+        long double CalculateDistance(long double& v); /// Calculate distance from linear velocity.
+        long double CalculateAngle(long double& w); /// Caclulate distance from angular velocity.
+        long double CalculateCost(State& a, State& b); /// Calculate cost.
+        Velocity InverseOdometry(State& sNew, State& sOld); /// Calculate velocities.
+        bool DoIntersect(cv::Point& a, cv::Point& b, cv::Point& p, cv::Point& q); /// Verify the intersection of a segment with obstacles.
+        int Orientation(cv::Point& p, cv::Point& q, cv::Point& r); /// Returns the orientation of a triplet.
+        bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r); /// Returns the collinearity of a triplet.
+        void Swap(long double* a, long double* b); /// Swaps two elements of an array.
+        int XConvertToPixel(long double& x); /// Convert x-axis real coordinate to map coordinate
+        int YConvertToPixel(long double& y); /// Convert y-axis real coordinate to map coordinate
+        long double GenerateRandom(long double& d); /// Takes a negative double and return a random number between [-arg, arg].
 };
 #endif

@@ -10,16 +10,17 @@
 #include <opencv2/highgui.hpp>
 #include <random>
 
-extern nlohmann::json settings;
-extern Map map;
-extern cv::VideoWriter* video;
-void _WOA::Apply(Path path)
+extern nlohmann::json mySettings;
+extern Map myMap;
+extern cv::VideoWriter* myVideo;
+
+void WOA::Apply(Path path)
 {
     static Logger log(__FUNCTION__);
     optimizedPath.push_back(path.array[0]);
     int lastValid;
     bool encounteredObstacle;
-    long double maxSteeringAngle = settings["RRT*_max_steering_angle"];
+    long double maxSteeringAngle = mySettings["RRT*_max_steering_angle"];
     int j = 1;
     for (int i = 1; i < path.size; ++i)
     {
@@ -31,7 +32,7 @@ void _WOA::Apply(Path path)
         }
         if (i == (path.size - 1) || !isFree)
         {
-            WOA woa(optimizedPath.back(), path.array[lastValid]);
+            MinimalWOA woa(optimizedPath.back(), path.array[lastValid]);
             State s = woa.Optimize();
             s.z = path.array[lastValid].z;
 
@@ -45,13 +46,19 @@ void _WOA::Apply(Path path)
             x = XConvertToPixel(b.x);
             y = YConvertToPixel(b.y);
             cv::Point q(x, y); 
-            line(map.image, p, q, cv::Scalar(0x0), 2, cv::LINE_AA);
+            line(myMap.image, p, q, cv::Scalar(0x0), 2, cv::LINE_AA);
 
             optimizedPath.push_back(s);
 
             i = lastValid;
 
            
+        }
+        if (i == (path.size - 1))
+        {
+            cv::Mat grayImage3C;
+            cv::cvtColor(myMap.image, grayImage3C, cv::COLOR_GRAY2BGR);
+            myVideo->write(grayImage3C);
         }
             /// /// state to push = WOA(optimizedPath.back(), path.array())
             /// optimizedPath.push_back(state to push);
@@ -63,7 +70,7 @@ void _WOA::Apply(Path path)
     }
 }
 
-bool _WOA::TestCollision(State& a, State& b){
+bool WOA::TestCollision(State& a, State& b){
     static Logger log(__FUNCTION__);
     int pX = XConvertToPixel(a.x);
     int pY = YConvertToPixel(a.y);
@@ -71,7 +78,7 @@ bool _WOA::TestCollision(State& a, State& b){
     int qX = XConvertToPixel(b.x);
     int qY = YConvertToPixel(b.y);
     cv::Point q(qX, qY);
-    for (auto& segment: map.segments){
+    for (auto& segment: myMap.segments){
         if (DoIntersect(p, q, segment.p, segment.q)){
             log.warn("Segment p({:+.2f}, {:+.2f}) q({:+.2f}, {:+.2f}) is not free", a.x, a.y, b.x, b.y);
             return false;
@@ -81,10 +88,10 @@ bool _WOA::TestCollision(State& a, State& b){
     return true;
 }
 
-bool _WOA::TestAngle(State& a, State& b)
+bool WOA::TestAngle(State& a, State& b)
 {
     static Logger log(__FUNCTION__);
-    long double maxSteeringAngle = settings["RRT*_max_steering_angle"];
+    long double maxSteeringAngle = mySettings["RRT*_max_steering_angle"];
     if (fabs(a.z - b.z) < maxSteeringAngle)
     {
         return true;
@@ -95,7 +102,7 @@ bool _WOA::TestAngle(State& a, State& b)
     }
 }
 
-State WOA::Optimize()
+State MinimalWOA::Optimize()
 {
     static Logger log(__FUNCTION__);
     log.debug("Whale Optimization Algorithm");
@@ -141,7 +148,7 @@ State WOA::Optimize()
     return this->sBest;
 }
 
-void WOA::InitializePopulation()
+void MinimalWOA::InitializePopulation()
 {
     static Logger log(__FUNCTION__);
     this->whales = new State[this->population];
@@ -155,7 +162,7 @@ void WOA::InitializePopulation()
     }
 }
 
-void WOA::CalculateFitness()
+void MinimalWOA::CalculateFitness()
 {
     static Logger log(__FUNCTION__);
     double long bestFitness = 0.0L, x, y, z;
@@ -179,7 +186,7 @@ void WOA::CalculateFitness()
     log.trace("Best Whale: {}, Fitness: {:.2f}", bestIndex, bestFitness);
 }
 
-void WOA::CoefficientUpdate()
+void MinimalWOA::CoefficientUpdate()
 {
     static Logger log(__FUNCTION__);
     this->a -= (this->_a / (long double)(this->_iterations * this->population));
@@ -193,7 +200,7 @@ void WOA::CoefficientUpdate()
     log.trace("a: {:.3f} | r: {:.2f} | A: {:.2f} | C: {:.2f} | l: {:.2f} | p: {:.2f} | b: {:.2f}", this->a, this->r, this->A, this->C, this->l, this->p, this->b);
 }
 
-void WOA::CircleUpdate()
+void MinimalWOA::CircleUpdate()
 {
     static Logger log(__FUNCTION__);
     long double oldV = this->whales[this->i].v;
@@ -207,7 +214,7 @@ void WOA::CircleUpdate()
     log.trace("Whale {} (Linear: {:.2f} => {:.2f})(Angular: {:.2f} => {:.2f})", this->i, oldV, newV, oldW, newW);
 }
 
-void WOA::RandomUpdate()
+void MinimalWOA::RandomUpdate()
 {
     static Logger log(__FUNCTION__);
     long double oldV = this->whales[this->i].v;
@@ -224,7 +231,7 @@ void WOA::RandomUpdate()
 
 }
 
-void WOA::SpiralUpdate()
+void MinimalWOA::SpiralUpdate()
 {
     static Logger log(__FUNCTION__);
     long double oldV = this->whales[this->i].v;
@@ -238,7 +245,7 @@ void WOA::SpiralUpdate()
     log.trace("Whale {} (Linear: {:.2f} => {:.2f})(Angular: {:.2f} => {:.2f})", this->i, oldV, newV, oldW, newW);
 }
 
-void WOA::CheckBoundary()
+void MinimalWOA::CheckBoundary()
 {
     static Logger log(__FUNCTION__);
     for (int i = 0; i < this->population; ++i)
@@ -266,10 +273,10 @@ void WOA::CheckBoundary()
     }
 }
 
-void WOA::RenderParticles()
+void MinimalWOA::RenderParticles()
 {
     cv::Mat image(500, 500, CV_8UC1, cv::Scalar(255, 255, 255));
-    image = map.image.clone();
+    image = myMap.image.clone();
     /// Draw all particles.
     int x, y;
     for (int i = 0; i < this->population; ++i){
@@ -299,18 +306,18 @@ void WOA::RenderParticles()
     cv::cvtColor(image, grayImage3C, cv::COLOR_GRAY2BGR);
 
 
-    video->write(grayImage3C);
+    myVideo->write(grayImage3C);
 
 }
 
-void WOA::CleanUp()
+void MinimalWOA::CleanUp()
 {
     delete this->whales;
 }
 
 /// ------------------------------------------------------------------------------------ 
 
-long double WOA::GenerateRandom(long double a, long double b)
+long double MinimalWOA::GenerateRandom(long double a, long double b)
 {
     std::random_device rd;
     std::default_random_engine engine(rd());
@@ -318,7 +325,7 @@ long double WOA::GenerateRandom(long double a, long double b)
     return distribution(engine);
 }
 
-int WOA::GenerateRandom(int a, int b)
+int MinimalWOA::GenerateRandom(int a, int b)
 {
     std::random_device rd;
     std::default_random_engine engine(rd());
@@ -327,48 +334,48 @@ int WOA::GenerateRandom(int a, int b)
     return (int)(std::floor(random));  
 }
 
-long double WOA::CalculateEuclideanDistance(long double& x, long double& y, long double& a, long double& b){
+long double MinimalWOA::CalculateEuclideanDistance(long double& x, long double& y, long double& a, long double& b){
     return sqrt(pow(x-a, 2)+pow(y-b, 2));
 }
 
 /// todo
-long double WOA::CalculateDistance(long double& v){
+long double MinimalWOA::CalculateDistance(long double& v){
     return (v * 1.0);
 }
 /// todo
-long double WOA::CalculateAngle(long double& w){
+long double MinimalWOA::CalculateAngle(long double& w){
     return (w * 1.0L);
 }
 
-int WOA::XConvertToPixel(long double& x){
+int MinimalWOA::XConvertToPixel(long double& x){
     return (int)((x + (12.5L)) / 0.05L);
 }
 
-int WOA::YConvertToPixel(long double& y){
+int MinimalWOA::YConvertToPixel(long double& y){
     return (int)((y + (12.5L)) / 0.05L);
 }
 
-int _WOA::Orientation(cv::Point& p, cv::Point& q, cv::Point& r){
+int WOA::Orientation(cv::Point& p, cv::Point& q, cv::Point& r){
     int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
     if (val == 0) return 0;  // collinear
     return (val > 0)? 1: 2; // clock or counterclock wise
 }
 
-bool _WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r){
+bool WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r){
     if (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) && q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y))
        return true;
     return false;
 }
 
-int _WOA::XConvertToPixel(long double& x){
-    return (int)((x + (-map.origin.x)) / map.resolution);
+int WOA::XConvertToPixel(long double& x){
+    return (int)((x + (-myMap.origin.x)) / myMap.resolution);
 }
 
-int _WOA::YConvertToPixel(long double& y){
-    return (int)((y + (-map.origin.y)) / map.resolution);
+int WOA::YConvertToPixel(long double& y){
+    return (int)((y + (-myMap.origin.y)) / myMap.resolution);
 }
 
-bool _WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2){
+bool WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2){
     int o1 = Orientation(p1, q1, p2);
     int o2 = Orientation(p1, q1, q2);
     int o3 = Orientation(p2, q2, p1);

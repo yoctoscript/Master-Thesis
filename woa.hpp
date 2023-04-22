@@ -6,23 +6,23 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 
-extern nlohmann::json settings;
+extern nlohmann::json mySettings;
 
-class WOA
+class MinimalWOA
 {
     public:
-        WOA(State sInit, State sGoal)
+        MinimalWOA(State sInit, State sGoal)
         {
             static Logger log(__FUNCTION__);
             this->sInit = sInit;
             this->sGoal = sGoal;
-            this->_a = settings["WOA_a"];
-            this->population = settings["WOA_population"];
-            this->_iterations = settings["WOA_iterations"];
-            this->linearVelocityMin = settings["WOA_linear_velocity_min"];
-            this->linearVelocityMax = settings["WOA_linear_velocity_max"];
-            this->angularVelocityMin = settings["WOA_angular_velocity_min"];
-            this->angularVelocityMax = settings["WOA_angular_velocity_max"];
+            this->_a = mySettings["WOA_a"];
+            this->population = mySettings["WOA_population"];
+            this->_iterations = mySettings["WOA_iterations"];
+            this->linearVelocityMin = mySettings["WOA_linear_velocity_min"];
+            this->linearVelocityMax = mySettings["WOA_linear_velocity_max"];
+            this->angularVelocityMin = mySettings["WOA_angular_velocity_min"];
+            this->angularVelocityMax = mySettings["WOA_angular_velocity_max"];
             this->a = this->_a;
             this->iterations = this->_iterations;
             log.trace("a: {:.2f} | population: {} | iterations {}", this->_a, this->population, this->iterations);
@@ -71,10 +71,10 @@ class WOA
 
 };
 
-class _WOA
+class WOA
 {
     public:
-        _WOA(){}
+        WOA(){}
         std::vector<State> optimizedPath;
         void Apply(Path path);
         bool TestCollision(State& a, State& b);

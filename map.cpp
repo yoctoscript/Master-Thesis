@@ -3,6 +3,8 @@
 #include "objects.hpp"
 #include "logger.hpp"
 
+extern bool myDebug;
+
 void Map::find_segments(){
     static Logger log(__FUNCTION__);
 
@@ -10,16 +12,17 @@ void Map::find_segments(){
     log.debug("threshold()");
     cv::Mat binary;
     threshold(image, binary, 250, 255, cv::THRESH_BINARY_INV);
-    cv::imshow("Image", image);
-    cv::imshow("Binary", binary);
+    myDebug ? cv::imshow("Image", image) : (void)0;
+    myDebug ? cv::imshow("Binary", binary) : (void)0;
 
     /// Performs morphological dilation on a binary image using a 3x3 rectangular structuring element, repeated "MAP_obstacles_dilation" times. 1:1px
     log.debug("dilate()");
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
-    for (int i = 0; i < this->dilation; ++i){
+    for (int i = 0; i < this->dilation; ++i)
+    {
         dilate(binary, binary, kernel);
     }
-    cv::imshow("Dilated", binary);
+    myDebug && this->dilation > 0 ? cv::imshow("Dilated", binary) : (void)0;
 
     /// Detects contours on a binary image using 'findContours()' function and stores the detected contours and their hierarchy in 'contours' and 'hierarchy' respectively.
     log.debug("findContours()");
@@ -30,10 +33,9 @@ void Map::find_segments(){
 
     cv::Mat invertedPolygonImage = cv::Mat::zeros(this->height, this->width, CV_8UC1);
     log.debug("approxPolyDP()");
-    this->segments.clear();
     for (int i = 0; i < contours.size(); i++){
 
-        /// Approximates a contour 'contours[i]' to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'epsilon' times the contour's arc length. The result is stored in polygon.
+        /// Approximates a contour to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'epsilon' times the contour's arc length. The result is stored in polygon.
         std::vector<cv::Point> polygon;
         double epsilon = this->epsilon * arcLength(contours[i], true);
         approxPolyDP(contours[i], polygon, epsilon, true);
@@ -61,7 +63,8 @@ void Map::find_segments(){
         /// Checks if the polygon has more than 2 points. If so, it creates segments between each pair of adjacent points and adds them to a vector of obstacle segments.
         else if (polygonSize > 2){
             for (int j = 0; j < polygonSize; ++j){
-                if (j == 0){
+                if (j == 0)
+                {
                     cv::Point a = polygon[polygonSize-1];
                     cv::Point b = polygon[0];
                     Segment seg(a, b);
@@ -69,7 +72,8 @@ void Map::find_segments(){
                     line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
                     log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
                 }
-                else {
+                else
+                {
                     cv::Point a = polygon[j-1];
                     cv::Point b = polygon[j];
                     Segment seg(a, b);
@@ -84,6 +88,6 @@ void Map::find_segments(){
     /// Show the result
     cv::Mat polygonImage;
     threshold(invertedPolygonImage, polygonImage, 128, 255, cv::THRESH_BINARY_INV);
-    imshow("Polygon", polygonImage);
+    myDebug ? imshow("Polygon", polygonImage) : (void)0;
     log.debug("Total Segments: {}", this->segments.size());
 }
