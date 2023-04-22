@@ -8,6 +8,21 @@
 
 extern nlohmann::json mySettings;
 
+class WOA
+{
+    public:
+        WOA(){}
+        std::vector<State> optimizedPath;
+        void Apply(Path path);
+        bool TestCollision(State& a, State& b);
+        bool TestAngle(State& a, State& b);
+        int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
+        bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
+        int XConvertToPixel(long double& x);
+        int YConvertToPixel(long double& y);
+        bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
+};
+
 class MinimalWOA
 {
     public:
@@ -17,22 +32,23 @@ class MinimalWOA
             this->sInit = sInit;
             this->sGoal = sGoal;
             this->_a = mySettings["WOA_a"];
+            this->a = this->_a;
             this->population = mySettings["WOA_population"];
             this->_iterations = mySettings["WOA_iterations"];
+            this->iterations = this->_iterations;
             this->linearVelocityMin = mySettings["WOA_linear_velocity_min"];
             this->linearVelocityMax = mySettings["WOA_linear_velocity_max"];
             this->angularVelocityMin = mySettings["WOA_angular_velocity_min"];
             this->angularVelocityMax = mySettings["WOA_angular_velocity_max"];
-            this->a = this->_a;
-            this->iterations = this->_iterations;
-            log.trace("a: {:.2f} | population: {} | iterations {}", this->_a, this->population, this->iterations);
+            log.trace("a: {:.2f} | population: {} | iterations: {}", this->_a, this->population, this->iterations);
         }
-        State Optimize();
+        State Optimize(); /// Main function.
         /// Fields.
-        State sInit;
-        State sGoal;
-        State sBest;
-        State sRand;
+        State sInit; /// Initial state.
+        State sGoal; /// Goal state.
+        State sBest; /// Best state.
+        State sRand; /// Random state.
+        int i;
         int population;
         int _iterations; /// Constant
         int iterations;
@@ -44,7 +60,6 @@ class MinimalWOA
         long double p;
         long double l;
         long double b;
-        int i;
         long double linearVelocityMin;
         long double linearVelocityMax;
         long double angularVelocityMin;
@@ -67,28 +82,5 @@ class MinimalWOA
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
         void CleanUp();
-
-
 };
-
-class WOA
-{
-    public:
-        WOA(){}
-        std::vector<State> optimizedPath;
-        void Apply(Path path);
-        bool TestCollision(State& a, State& b);
-        bool TestAngle(State& a, State& b);
-        int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
-        bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
-        int XConvertToPixel(long double& x);
-        int YConvertToPixel(long double& y);
-        bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
-
-
-
-
-};
-
-
 #endif

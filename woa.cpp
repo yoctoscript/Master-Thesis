@@ -19,7 +19,6 @@ void WOA::Apply(Path path)
     static Logger log(__FUNCTION__);
     optimizedPath.push_back(path.array[0]);
     int lastValid;
-    bool encounteredObstacle;
     long double maxSteeringAngle = mySettings["RRT*_max_steering_angle"];
     int j = 1;
     for (int i = 1; i < path.size; ++i)
@@ -34,7 +33,8 @@ void WOA::Apply(Path path)
         {
             MinimalWOA woa(optimizedPath.back(), path.array[lastValid]);
             State s = woa.Optimize();
-            s.z = path.array[lastValid].z;
+            std::string lo;
+            log.error("Difference | x: {:.2f}, y: {:.2f}, z:{:.2f}", path.array[lastValid].x - s.x, path.array[lastValid].y - s.y, path.array[lastValid].z - s.z);
 
             int x, y;
             State a, b;
@@ -46,13 +46,10 @@ void WOA::Apply(Path path)
             x = XConvertToPixel(b.x);
             y = YConvertToPixel(b.y);
             cv::Point q(x, y); 
-            line(myMap.image, p, q, cv::Scalar(0x0), 2, cv::LINE_AA);
+            line(myMap.image, p, q, cv::Scalar(0x00), 2, cv::LINE_AA);
 
             optimizedPath.push_back(s);
-
             i = lastValid;
-
-           
         }
         if (i == (path.size - 1))
         {
@@ -60,13 +57,6 @@ void WOA::Apply(Path path)
             cv::cvtColor(myMap.image, grayImage3C, cv::COLOR_GRAY2BGR);
             myVideo->write(grayImage3C);
         }
-            /// /// state to push = WOA(optimizedPath.back(), path.array())
-            /// optimizedPath.push_back(state to push);
-            /// i = lastValid;
-    }
-    for (State s: this->optimizedPath)
-    {
-        log.trace("{} {} {}", s.x, s.y, s.z);
     }
 }
 
@@ -80,11 +70,11 @@ bool WOA::TestCollision(State& a, State& b){
     cv::Point q(qX, qY);
     for (auto& segment: myMap.segments){
         if (DoIntersect(p, q, segment.p, segment.q)){
-            log.warn("Segment p({:+.2f}, {:+.2f}) q({:+.2f}, {:+.2f}) is not free", a.x, a.y, b.x, b.y);
+            log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is not free", a.x, a.y, b.x, b.y);
             return false;
         }
     }
-    log.trace("Segment p({:+.2f}, {:+.2f}) q({:+.2f}, {:+.2f}) is free", a.x, a.y, b.x, b.y);
+    log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is free", a.x, a.y, b.x, b.y);
     return true;
 }
 
@@ -144,7 +134,6 @@ State MinimalWOA::Optimize()
     }
     log.debug("CleanUp()");
     CleanUp();
-    log.info("WOA Finished");
     return this->sBest;
 }
 
@@ -174,7 +163,7 @@ void MinimalWOA::CalculateFitness()
         z = this->whales[i].z = (this->sInit.z) + CalculateAngle(this->whales[i].w);
         long double distanceDifference = CalculateEuclideanDistance(x, y, this->sGoal.x, this->sGoal.y);
         long double angleDifference = fabs(this->sGoal.z - z);
-        long double fitness = 1 / distanceDifference; // to do (add more factors)(angle nominator: cos(alpha))
+        long double fitness = (0.5 / (distanceDifference)); // to do (add more factors)(angle nominator: cos(alpha))
         if (fitness > bestFitness)
         {
             bestFitness = fitness;
@@ -190,7 +179,6 @@ void MinimalWOA::CoefficientUpdate()
 {
     static Logger log(__FUNCTION__);
     this->a -= (this->_a / (long double)(this->_iterations * this->population));
-    log.trace((this->_a / (long double)(this->_iterations * this->population)));
     this->r = GenerateRandom(0.0l, 1.0l);
     this->A = (2 * this->a * this->r) - this->a;
     this->C = (2 * this->r);
