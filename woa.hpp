@@ -21,6 +21,10 @@ class WOA
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
         bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
+        void Test(State sInit, State sGoal);
+        long double CalculateEuclideanDistance(long double& x, long double& y, long double& a, long double& b);
+        long double CalculateDistance(long double& v);
+        long double CalculateAngle(long double& w);
 };
 
 class MinimalWOA
@@ -82,5 +86,7 @@ class MinimalWOA
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
         void CleanUp();
+        long double NormalizeAngle(long double angle);
+
 };
 #endif

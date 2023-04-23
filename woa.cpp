@@ -37,7 +37,7 @@ void WOA::Apply(Path path)
             s.z = path.array[lastValid].z;
             log.warn("init: x: {:.2f}, goal: x: {:.2f}", optimizedPath.back().x, s.x);
             log.warn("init: y: {:.2f}, goal: y: {:.2f}", optimizedPath.back().y, s.y);
-            log.warn("init: z: {:.2f}, goal: z: {:.2f}     {}", optimizedPath.back().z, s.z, fabs(optimizedPath.back().z - s.z)  < maxSteeringAngle ? u8"🟢" : u8"🔴");
+            log.warn("init: z: {:.2f}, goal: z: {:.2f} {}", optimizedPath.back().z, s.z, fabs(optimizedPath.back().z - s.z)  < maxSteeringAngle ? u8"🟢" : u8"🔴");
             log.warn("init: v: {:.2f}, goal: v: {:.2f}", optimizedPath.back().v, s.v);
             log.warn("init: w: {:.2f}, goal: w: {:.2f}", optimizedPath.back().w, s.w);
             log.warn("-----");
@@ -113,7 +113,7 @@ State MinimalWOA::Optimize()
             CoefficientUpdate();
             if ((this->p) < 0.5L)
             {
-                if (fabs(this->A) < 0.5L)
+                if (fabs(this->A) < 1.0L)
                 {
                     log.debug("CircleUpdate()");
                     CircleUpdate();
@@ -168,8 +168,8 @@ void MinimalWOA::CalculateFitness()
         y = this->whales[i].y = (this->sInit.y) + CalculateDistance(this->whales[i].v)*cos(this->sInit.z + CalculateAngle(this->whales[i].w)/2.0l);
         z = this->whales[i].z = (this->sInit.z) + CalculateAngle(this->whales[i].w);
         long double distanceDifference = CalculateEuclideanDistance(x, y, this->sGoal.x, this->sGoal.y);
-        long double angleDifference = fabs(this->sGoal.z - z);
-        long double fitness = (1 / angleDifference) + (1 / (distanceDifference * 1e-4)); // to do (add more factors)(angle nominator: cos(alpha))
+        long double angleDifference = fabs(NormalizeAngle(this->sGoal.z) - NormalizeAngle(z));
+        long double fitness =  (1 / (distanceDifference *1e-15)); // to do (add more factors)(angle nominator: cos(alpha))
         if (fitness > bestFitness)
         {
             bestFitness = fitness;
@@ -329,11 +329,11 @@ long double MinimalWOA::CalculateEuclideanDistance(long double& x, long double& 
 
 /// todo
 long double MinimalWOA::CalculateDistance(long double& v){
-    return (v * 1.0);
+    return (v * 1.0l);
 }
 /// todo
 long double MinimalWOA::CalculateAngle(long double& w){
-    return (w * 1.0L);
+    return (w * 1.0l);
 }
 
 int MinimalWOA::XConvertToPixel(long double& x){
@@ -376,4 +376,62 @@ bool WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2
     if (o3 == 0 && OnSegment(p2, p1, q2)) return true;  
     if (o4 == 0 && OnSegment(p2, q1, q2)) return true;
     return false;
+}
+
+void WOA::Test(State sInit, State sGoal)
+{
+    static Logger log(__FUNCTION__);
+    long double goalThreshold  = mySettings["RRT*_goal_threshold"];
+    long double x, y, z;
+    x = sInit.x;
+    y = sInit.y;
+    z = sInit.z;
+
+    for (State s: this->optimizedPath)
+    {
+        if (s.x == sInit.x && s.y == sInit.y) continue;
+        x = x - CalculateDistance(s.v) * sin(z + CalculateAngle(s.w) / 2.0l);
+        y = y + CalculateDistance(s.v) * cos(z + CalculateAngle(s.w) / 2.0l);
+        z = z + CalculateAngle(s.w);
+        log.info("{:.2f} {:.2f} {:.2f}", x,y,z);
+    }
+    log.info("{} {} {}", x,y,z);
+    if (CalculateEuclideanDistance(x,y,sGoal.x, sGoal.y) < goalThreshold)
+    {
+        log.info("TEST SUCCEEDED!");
+    }
+    else
+    {
+        log.error("TEST FAILED");
+    }
+    return;
+}
+
+long double WOA::CalculateEuclideanDistance(long double& x, long double& y, long double& a, long double& b){
+    return sqrt(pow(x-a, 2.0l)+pow(y-b, 2.0l));
+}
+
+/// todo
+long double WOA::CalculateDistance(long double& v){
+    return (v * 1.0l);
+}
+/// todo
+long double WOA::CalculateAngle(long double& w){
+    return (w * 1.0L);
+}
+
+long double MinimalWOA::NormalizeAngle(long double angle) {
+    // Normalize the angle to the range of -2*pi to 2*pi
+    while (angle <= -2*M_PI || angle >= 2*M_PI) {
+        if (angle <= -2*M_PI) {
+            angle += 2*M_PI;
+        } else {
+            angle -= 2*M_PI;
+        }
+    }
+    // Shift the angle to the range of 0 to 2*pi
+    if (angle < 0) {
+        angle += 2*M_PI;
+    }
+    return angle;
 }
