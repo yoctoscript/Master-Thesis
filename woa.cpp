@@ -13,6 +13,7 @@
 extern nlohmann::json mySettings;
 extern Map myMap;
 extern cv::VideoWriter* myVideo;
+extern bool myDebug;
 
 void WOA::Apply(Path path)
 {
@@ -29,13 +30,17 @@ void WOA::Apply(Path path)
         {
             lastValid = i;
         }
-        if (i == (path.size - 1) || !isFree)
+        if (i == (path.size - 1) || !isFree || !isSteerable)
         {
             MinimalWOA woa(optimizedPath.back(), path.array[lastValid]);
             State s = woa.Optimize();
-            std::string lo;
-            log.error("Difference | x: {:.2f}, y: {:.2f}, z:{:.2f}", path.array[lastValid].x - s.x, path.array[lastValid].y - s.y, path.array[lastValid].z - s.z);
-
+            s.z = path.array[lastValid].z;
+            log.warn("init: x: {:.2f}, goal: x: {:.2f}", optimizedPath.back().x, s.x);
+            log.warn("init: y: {:.2f}, goal: y: {:.2f}", optimizedPath.back().y, s.y);
+            log.warn("init: z: {:.2f}, goal: z: {:.2f}     {}", optimizedPath.back().z, s.z, fabs(optimizedPath.back().z - s.z)  < maxSteeringAngle ? u8"🟢" : u8"🔴");
+            log.warn("init: v: {:.2f}, goal: v: {:.2f}", optimizedPath.back().v, s.v);
+            log.warn("init: w: {:.2f}, goal: w: {:.2f}", optimizedPath.back().w, s.w);
+            log.warn("-----");
             int x, y;
             State a, b;
             a = optimizedPath.back();
@@ -151,10 +156,11 @@ void MinimalWOA::InitializePopulation()
     }
 }
 
+
 void MinimalWOA::CalculateFitness()
 {
     static Logger log(__FUNCTION__);
-    double long bestFitness = 0.0L, x, y, z;
+    double long bestFitness = 0.0l, x, y, z;
     int bestIndex = 0;
     for (int i = 0; i < this->population; ++i)
     {
@@ -163,7 +169,7 @@ void MinimalWOA::CalculateFitness()
         z = this->whales[i].z = (this->sInit.z) + CalculateAngle(this->whales[i].w);
         long double distanceDifference = CalculateEuclideanDistance(x, y, this->sGoal.x, this->sGoal.y);
         long double angleDifference = fabs(this->sGoal.z - z);
-        long double fitness = (0.5 / (distanceDifference)); // to do (add more factors)(angle nominator: cos(alpha))
+        long double fitness = (1 / angleDifference) + (1 / (distanceDifference * 1e-4)); // to do (add more factors)(angle nominator: cos(alpha))
         if (fitness > bestFitness)
         {
             bestFitness = fitness;
@@ -240,22 +246,18 @@ void MinimalWOA::CheckBoundary()
     {
         if (this->whales[i].v > this->linearVelocityMax)
         {
-            log.trace("Whale {} (Linear: {:.2f} => {:.2f})", i, this->whales[i].v, this->linearVelocityMax);
             this->whales[i].v = this->linearVelocityMax;
         }
         else if (this->whales[i].v < this->linearVelocityMin)
         {
-            log.trace("Whale {} (Linear: {:.2f} => {:.2f})", i, this->whales[i].v, this->linearVelocityMin);
             this->whales[i].v = this->linearVelocityMin;
         }
         if (this->whales[i].w > this->angularVelocityMax)
         {
-            log.trace("Whale {} (Angular: {:.2f} => {:.2f})", i, this->whales[i].w, this->angularVelocityMax);
             this->whales[i].w = this->angularVelocityMax;
         }
         else if (this->whales[i].w < this->angularVelocityMin)
         {
-            log.trace("Whale {} (Angular: {:.2f} => {:.2f})", i, this->whales[i].w, this->angularVelocityMin);
             this->whales[i].w = this->angularVelocityMin;
         }
     }
@@ -263,6 +265,7 @@ void MinimalWOA::CheckBoundary()
 
 void MinimalWOA::RenderParticles()
 {
+    static Logger log(__FUNCTION__);
     cv::Mat image(500, 500, CV_8UC1, cv::Scalar(255, 255, 255));
     image = myMap.image.clone();
     /// Draw all particles.
@@ -288,14 +291,12 @@ void MinimalWOA::RenderParticles()
     circle(image, init, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
     cv::imshow("WOA", image);
-    cv::waitKey(0);
+    myDebug ? cv::waitKey(0) : 0;
     
     cv::Mat grayImage3C;
     cv::cvtColor(image, grayImage3C, cv::COLOR_GRAY2BGR);
 
-
     myVideo->write(grayImage3C);
-
 }
 
 void MinimalWOA::CleanUp()
