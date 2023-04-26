@@ -2,8 +2,7 @@
 #define LOGGER_HPP
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-
-extern bool myDebug;
+#include "SETTINGS.hpp"
 
 class Logger{
     public:
@@ -16,8 +15,11 @@ class Logger{
             console_sink->set_color(spdlog::level::err, "red");
             console_sink->set_color(spdlog::level::critical, "bold red");
             logger = spdlog::stdout_color_mt(name);
-            spdlog::level::level_enum level = myDebug ? spdlog::level::trace : spdlog::level::info;
-            logger->set_level(level);
+            #ifdef DEBUG 
+                logger->set_level(spdlog::level::trace );
+            #else
+                logger->set_level(spdlog::level::info);
+            #endif
             logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%n] %v");
         }
         std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> console_sink;

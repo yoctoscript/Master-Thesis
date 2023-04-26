@@ -11,6 +11,7 @@ class Map{
         Map(){}
         /// Fields.
         cv::Mat image; /// Matrix containing my map data.
+        cv::Mat colored; /// Matrix containing colored representation of the map.
         State origin; /// Origin of real world map, corresponds to (0.0)
         long double resolution; /// Meters / pixel.
         int width; /// Width of the map.

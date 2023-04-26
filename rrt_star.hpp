@@ -8,7 +8,8 @@
 class RRT_Star{
     public:
         /// Constructors.
-        RRT_Star(State& sInit, State& sGoal){
+        RRT_Star(State& sInit, State& sGoal)
+        {
             this->sInit = sInit;
             this->sGoal = sGoal;
         }
@@ -32,6 +33,7 @@ class RRT_Star{
         State SampleFreeSpace(); /// Sample free space.
         State* FindNearest(State& sRand); /// Find nearest.
         State Steer(State* sNear, State& sRand); /// Steer.
+        State SteerUsingWOA(State* sNear, State& sRand); /// Steer using WOA.
         bool IsObstacleFree(State& sNew); /// Is obstacle free (Point).
         bool IsObstacleFree(State& sNew, State& sNeighbor); /// Is obstacle free (Segment).
         std::vector<State*> GetNeighbors(State& sNew); /// Get neighbors.

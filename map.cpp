@@ -2,39 +2,51 @@
 #include "map.hpp"
 #include "objects.hpp"
 #include "logger.hpp"
-
-extern bool myDebug;
+#include "SETTINGS.hpp"
 
 void Map::find_segments(){
-    static Logger log(__FUNCTION__);
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
 
     /// Performs image thresholding on a grayscale image using a threshold value of 250 and creates a binary image.
-    log.debug("threshold()");
+    #ifdef DEBUG
+        log.debug("threshold()");
+    #endif
     cv::Mat binary;
-    threshold(image, binary, 250, 255, cv::THRESH_BINARY_INV);
-    myDebug ? cv::imshow("Image", image) : (void)0;
-    myDebug ? cv::imshow("Binary", binary) : (void)0;
+    threshold(this->image, binary, 250, 255, cv::THRESH_BINARY_INV);
+    #ifdef DEBUG
+        cv::imshow("Image", this->image);
+        cv::imshow("Binary", binary);
+    #endif
 
     /// Performs morphological dilation on a binary image using a 3x3 rectangular structuring element, repeated "MAP_obstacles_dilation" times. 1:1px
-    log.debug("dilate()");
+    #ifdef DEBUG
+        log.debug("dilate()");
+    #endif
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3));
     for (int i = 0; i < this->dilation; ++i)
     {
         dilate(binary, binary, kernel);
     }
-    myDebug && this->dilation > 0 ? cv::imshow("Dilated", binary) : (void)0;
+    #ifdef DEBUG
+        cv::imshow("Dilated", binary);
+    #endif
 
     /// Detects contours on a binary image using 'findContours()' function and stores the detected contours and their hierarchy in 'contours' and 'hierarchy' respectively.
-    log.debug("findContours()");
+    #ifdef DEBUG
+        log.debug("findContours()");
+    #endif
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
     findContours(binary, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-    log.debug("Contoured Objects: {}", contours.size());
-
-    cv::Mat invertedPolygonImage = cv::Mat::zeros(this->height, this->width, CV_8UC1);
-    log.debug("approxPolyDP()");
-    for (int i = 0; i < contours.size(); i++){
-
+    #ifdef DEBUG
+        log.debug("Contoured Objects: {}", contours.size());
+        cv::Mat invertedPolygonImage = cv::Mat::zeros(this->height, this->width, CV_8UC1);
+        log.debug("approxPolyDP()");
+    #endif
+    for (int i = 0; i < contours.size(); ++i)
+    {
         /// Approximates a contour to a polygon using the 'approxPolyDP()' function with an epsilon value based on 'epsilon' times the contour's arc length. The result is stored in polygon.
         std::vector<cv::Point> polygon;
         double epsilon = this->epsilon * arcLength(contours[i], true);
@@ -46,8 +58,10 @@ void Map::find_segments(){
             cv::Point a = polygon[0];
             Segment seg(a, a);
             this->segments.push_back(seg);
-            line(invertedPolygonImage, a, a, cv::Scalar(255), 1, cv::LINE_AA);
-            log.trace("Obstacle Point ({}, {})", a.x, a.y);
+            #ifdef DEBUG
+                line(invertedPolygonImage, a, a, cv::Scalar(255), 1, cv::LINE_AA);
+                log.trace("Obstacle Point ({}, {})", a.x, a.y);
+            #endif
         }
 
         /// Checks for a two-point obstacle and creates a Segment object with the two points as start and end points. It then adds the Segment object to a vector of obstacle segments.
@@ -56,8 +70,10 @@ void Map::find_segments(){
             cv::Point b = polygon[1];
             Segment seg(a, b);
             this->segments.push_back(seg);
-            line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
-            log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+            #ifdef DEBUG
+                line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+                log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+            #endif
         }
 
         /// Checks if the polygon has more than 2 points. If so, it creates segments between each pair of adjacent points and adds them to a vector of obstacle segments.
@@ -69,8 +85,10 @@ void Map::find_segments(){
                     cv::Point b = polygon[0];
                     Segment seg(a, b);
                     this->segments.push_back(seg);
-                    line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
-                    log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+                    #ifdef DEBUG
+                        line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+                        log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+                    #endif
                 }
                 else
                 {
@@ -78,16 +96,28 @@ void Map::find_segments(){
                     cv::Point b = polygon[j];
                     Segment seg(a, b);
                     this->segments.push_back(seg);
-                    line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
-                    log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+                    #ifdef DEBUG
+                        line(invertedPolygonImage, a, b, cv::Scalar(255), 1, cv::LINE_AA);
+                        log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
+                    #endif
                 }
             }
         }
     }
 
-    /// Show the result
-    cv::Mat polygonImage;
-    threshold(invertedPolygonImage, polygonImage, 128, 255, cv::THRESH_BINARY_INV);
-    myDebug ? imshow("Polygon", polygonImage) : (void)0;
-    log.debug("Total Segments: {}", this->segments.size());
+    #ifdef DEBUG
+        /// Show the result
+        cv::Mat polygonImage;
+        threshold(invertedPolygonImage, polygonImage, 128, 255, cv::THRESH_BINARY_INV);
+        imshow("Polygon", polygonImage);
+        log.debug("Total Segments: {}", this->segments.size());
+
+        /// Draw on colored image
+        cv::cvtColor(this->image, this->colored, cv::COLOR_GRAY2BGR);
+        for (Segment seg: this->segments)
+        {
+            line(this->colored, seg.p, seg.q, cv::Scalar(0x1C, 0x57, 0xDD), 1, cv::LINE_AA);
+        }
+        imshow("RRT* WOA", this->colored);
+    #endif
 }

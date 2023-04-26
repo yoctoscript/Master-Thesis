@@ -1,50 +1,77 @@
-#include "rrt_star.hpp"
-#include "objects.hpp"
-#include "logger.hpp"
-#include <fstream>
-#include <iostream>
-#include <inttypes.h>
-#include <cstdlib>
-#include <cmath>
-#include <random>
-#include <algorithm>
-#include <limits>
-#include <cstdlib>
-#include <time.h>
-#include <iomanip>
 #include <opencv2/opencv.hpp>
 #include <nlohmann/json.hpp>
+#include <inttypes.h>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <cstdlib>
+#include <iomanip>
+#include <time.h>
+#include <random>
+#include <limits>
+#include <cmath>
+#include "rrt_star.hpp"
+#include "SETTINGS.hpp"
+#include "objects.hpp"
+#include "logger.hpp"
 #include "map.hpp"
+#include "woa.hpp"
 
+extern cv::VideoWriter* myVideo; /// Object used to write videos.
 extern nlohmann::json mySettings;
 extern Map myMap;
 
+
 Path RRT_Star::Build(){
-    static Logger log(__FUNCTION__);
-    log.debug("Initialize()");
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+        log.debug("Initialize()");
+    #endif
     Initialize();
-    log.debug("InsertRoot()");
+    #ifdef DEBUG
+        log.debug("InsertRoot()");
+    #endif
     InsertRoot();
-    for (this->count = 1; this->count < this->iterations; ++(this->count)){
-        log.debug("State {}: SampleFreeSpace()", this->count);
+    for (this->count = 1; this->count < this->iterations; ++(this->count))
+    {
+        #ifdef DEBUG
+            log.debug("State {}: SampleFreeSpace()", this->count);
+        #endif
         State sRand = SampleFreeSpace();
-        log.debug("State {}: FindNearest()", this->count);
+        #ifdef DEBUG
+            log.debug("State {}: FindNearest()", this->count);
+        #endif
         State* sNear = FindNearest(sRand);
-        log.debug("State {}: Steer()", this->count);
-        State sNew = Steer(sNear, sRand);
-        if (IsObstacleFree(sNew)){
-            log.debug("State {}: GetNeighbors()", this->count);
+        #ifdef DEBUG
+            log.debug("State {}: Steer()", this->count);
+        #endif
+        State sNew = SteerUsingWOA(sNear, sRand);
+        if (IsObstacleFree(sNew))
+        {
+            #ifdef DEBUG
+                log.debug("State {}: GetNeighbors()", this->count);
+            #endif
             std::vector<State*> neighbors = GetNeighbors(sNew);
-            if (neighbors.empty()){
-                log.trace("No valid neighbors");
+            if (neighbors.empty())
+            {
+                #ifdef DEBUG
+                    log.trace("No valid neighbors");
+                #endif
                 --(this->count);
                 continue;
             }
-            log.debug("State {}: ChooseParent()", this->count);
+            #ifdef DEBUG
+                log.debug("State {}: ChooseParent()", this->count);
+            #endif
             State* sParent = ChooseParent(sNew, neighbors);
-            log.debug("State {}: Insert()", this->count);
+            #ifdef DEBUG
+                log.debug("State {}: Insert()", this->count);
+            #endif
             State* psNew = Insert(sNew, sParent);
-            log.debug("State {}: RewireTree()", this->count);
+            #ifdef DEBUG
+                log.debug("State {}: RewireTree()", this->count);
+            #endif
             RewireTree(psNew, neighbors);
         }
         else{
@@ -52,7 +79,9 @@ Path RRT_Star::Build(){
             continue;
         }
     }
-    log.debug("ShortestPath()");
+    #ifdef DEBUG
+        log.debug("ShortestPath()");
+    #endif
     return ShortestPath();
 }
 
@@ -74,16 +103,23 @@ void RRT_Star::InsertRoot(){
 }
 
 State RRT_Star::SampleFreeSpace(){
-    static Logger log(__FUNCTION__);
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     State sRand;
     sRand.x = GenerateRandom(myMap.origin.x);
     sRand.y = GenerateRandom(myMap.origin.y);
-    log.trace("sRand (x:{:+.2f}, y:{:+.2f})", sRand.x, sRand.y);
+    #ifdef DEBUG
+        log.trace("sRand (x:{:+.2f}, y:{:+.2f})", sRand.x, sRand.y);
+    #endif
     return sRand;
 }
 
-State* RRT_Star::FindNearest(State& sRand){
-    static Logger log(__FUNCTION__);
+State* RRT_Star::FindNearest(State& sRand)
+{
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     State *sNear;
     long double shortestDistance = std::numeric_limits<long double>::max();
     long double distance;
@@ -94,12 +130,17 @@ State* RRT_Star::FindNearest(State& sRand){
             sNear = &states[i];
         }
     }
-    log.trace("sNear (x:{:.2f}, y:{:.2f}, z:{:.2f})", sNear->x, sNear->y, sNear->z);
+    #ifdef DEBUG
+        log.trace("sNear (x:{:.2f}, y:{:.2f}, z:{:.2f})", sNear->x, sNear->y, sNear->z);
+    #endif
     return sNear;
 }
 
-State RRT_Star::Steer(State* sNear, State& sRand){
-    static Logger log(__FUNCTION__);
+State RRT_Star::Steer(State* sNear, State& sRand)
+{
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     std::vector<long double> angularVelocities = angularVelocity.get<std::vector<long double>>();
     int N = angularVelocities.size();
     long double angVel[N], dist[N], x_temp[N], y_temp[N];
@@ -134,13 +175,24 @@ State RRT_Star::Steer(State* sNear, State& sRand){
     sNew.x = x_temp[0];
     sNew.y = y_temp[0];
     sNew.z =  sNear->z + CalculateAngle(angVel[0]);
-    log.trace("sNew (x:{:+.2f}, y:{:+.2f}, z:{:+.2f})", sNew.x, sNew.y, sNew.z);
+    #ifdef DEBUG
+        log.trace("sNew (x:{:+.2f}, y:{:+.2f}, z:{:+.2f})", sNew.x, sNew.y, sNew.z);
+    #endif
     return sNew;
 }
 
+State RRT_Star::SteerUsingWOA(State* sNear, State& sRand)
+{
+    WOA woa(*sNear, sRand, this->sGoal);
+    return woa.Apply();
+}
+
+
 bool RRT_Star::IsObstacleFree(State& sNew)
 {
-    static Logger log("IsObstacleFree [Point]");
+    #ifdef DEBUG
+        static Logger log("IsObstacleFree [Point]");
+    #endif
     int x = XConvertToPixel(sNew.x);
     int y = YConvertToPixel(sNew.y);
     cv::Point p(x, y);
@@ -148,17 +200,23 @@ bool RRT_Star::IsObstacleFree(State& sNew)
     {
         if (DoIntersect(p, p, segment.p, segment.q))
         {
-            log.trace("State (x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y);
+            #ifdef DEBUG
+                log.trace("State (x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y);
+            #endif
             return false;
         }
     }
-    log.trace("State (x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y);
+    #ifdef DEBUG
+        log.trace("State (x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y);
+    #endif
     return true;
 }
 
 bool RRT_Star::IsObstacleFree(State& sNew, State& sNeighbor)
 {
-    static Logger log("IsObstacleFree [Segment]");
+    #ifdef DEBUG
+        static Logger log("IsObstacleFree [Segment]");
+    #endif
     int pX = XConvertToPixel(sNew.x);
     int pY = YConvertToPixel(sNew.y);
     cv::Point p(pX, pY);
@@ -169,17 +227,23 @@ bool RRT_Star::IsObstacleFree(State& sNew, State& sNeighbor)
     {
         if (DoIntersect(p, q, segment.p, segment.q))
         {
-            log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+            #ifdef DEBUG
+                log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+            #endif
             return false;
         }
     }
-    log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+    #ifdef DEBUG
+        log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+    #endif
     return true;
 }
 
 std::vector<State*> RRT_Star::GetNeighbors(State& sNew)
 {
-    static Logger log(__FUNCTION__);
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     std::vector<State*> neighbors;
     for (int i = 0; i < this->count; ++i)
     {
@@ -227,7 +291,9 @@ State* RRT_Star::Insert(State& sNew, State* sParent)
 
 void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors)
 {
-    static Logger log(__FUNCTION__);
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     State* sNewParent = (*sNew).p;
     neighbors.erase(std::remove(neighbors.begin(), neighbors.end(), sNewParent), neighbors.end());
     for (auto& neighbor: neighbors)
@@ -235,7 +301,6 @@ void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors)
         double cost = sNew->c + CalculateCost(*sNew, *neighbor);
         if (cost < neighbor->c)
         {
-            Velocity velocity = InverseOdometry(*neighbor, *sNew);
             State* currentParent = neighbor->p;
             State* temp = neighbor->p = sNew;
             for (int i = 0; i < 3; ++i)
@@ -251,6 +316,7 @@ void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors)
                 continue;
             }
             neighbor->c = cost;
+            Velocity velocity = InverseOdometry(*neighbor, *sNew);
             neighbor->v = velocity.v;
             neighbor->w = velocity.w;
         }
@@ -259,6 +325,7 @@ void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors)
 }
 
 void RRT_Star::Render(Path& path){
+    myMap.colored = cv::Mat(500, 500, CV_8UC3, cv::Scalar(0,0,0));
     int x, y;
     /// Draw all branches.
     for (int i = 1; i < this->count; ++i)
@@ -271,22 +338,23 @@ void RRT_Star::Render(Path& path){
         x = XConvertToPixel(b.x);
         y = YConvertToPixel(b.y);
         cv::Point q(x, y);
-        line(myMap.image, p, q, cv::Scalar(0x97), 1, cv::LINE_AA);
+        line(myMap.colored, p, q, cv::Scalar(0xBC, 0x44, 0x39), 1, cv::LINE_AA);
     }
 
     /// Initial configuration.
     x = XConvertToPixel(this->sInit.x);
     y = YConvertToPixel(this->sInit.y);
     cv::Point init(x, y);
-    circle(myMap.image, init, 5, cv::Scalar(0x3B), -1, cv::LINE_AA);
+    circle(myMap.colored, init, 9, cv::Scalar(0x00, 0x00, 0x00), -1, cv::LINE_AA);
+    circle(myMap.colored, init, 7, cv::Scalar(0x4A, 0xC0, 0x03), -1, cv::LINE_AA);
 
     /// Goal threshold region and configuration.
     x = XConvertToPixel(this->sGoal.x);
     y = YConvertToPixel(this->sGoal.y);
     cv::Point goal(x, y);
     int goal_radius = (int)(this->goalThreshold / myMap.resolution);
-    circle(myMap.image, goal, goal_radius, cv::Scalar(0x97), -1, cv::LINE_AA);
-    circle(myMap.image, goal, 5, cv::Scalar(0x3B), -1, cv::LINE_AA);
+    circle(myMap.colored, goal, goal_radius+2, cv::Scalar(0x00, 0x00, 0x00), -1, cv::LINE_AA);
+    circle(myMap.colored, goal, goal_radius, cv::Scalar(0x39, 0x29, 0xED), -1, cv::LINE_AA);
 
     /// Draw shortest path.
     for (int i = 1; i < path.size; ++i)
@@ -299,7 +367,8 @@ void RRT_Star::Render(Path& path){
         x = XConvertToPixel(b.x);
         y = YConvertToPixel(b.y);
         cv::Point q(x, y); 
-        line(myMap.image, p, q, cv::Scalar(0x97), 4, cv::LINE_AA);
+        line(myMap.colored, p, q, cv::Scalar(0x00, 0x00, 0x00), 5, cv::LINE_AA);
+        line(myMap.colored, p, q, cv::Scalar(0x4A, 0xC0, 0x03), 3, cv::LINE_AA);
     }
     
     /// Draw obstacle segments.
@@ -307,11 +376,13 @@ void RRT_Star::Render(Path& path){
     {
         line(myMap.image, segment.p, segment.q, cv::Scalar(0x97), 1, cv::LINE_AA);
     }
-    myDebug ? cv::imshow("RRT*", myMap.image) : (void)0;
+    cv::imshow("RRT* WOA", myMap.colored);
 }
 
 Path RRT_Star::ShortestPath(){
-    static Logger log(__FUNCTION__);
+    #ifdef DEBUG
+        static Logger log(__FUNCTION__);
+    #endif
     double lowestCost = std::numeric_limits<long double>::max();
     State* bestState = nullptr;
     /// Find the state that lies within goal region and has the lowest cost.
@@ -331,10 +402,14 @@ Path RRT_Star::ShortestPath(){
     Path path;
     if (!bestState)
     {
-        log.error("No path found");
+        #ifdef DEBUG
+            log.error("No path found");
+        #endif
         exit(1);
     }
-    log.trace("Best State: (x:{:+.2f}, y:{:+.2f}, z:{:+.2f}, c:{:+.2f})",bestState->x, bestState->y, bestState->z, bestState->c);
+    #ifdef DEBUG
+        log.trace("Best State: (x:{:+.2f}, y:{:+.2f}, z:{:+.2f}, c:{:+.2f})",bestState->x, bestState->y, bestState->z, bestState->c);
+    #endif
     /// Find how many state constitute the shortest path.
     int i = 1;
     State* pointer = bestState;
@@ -351,10 +426,12 @@ Path RRT_Star::ShortestPath(){
         path.array[j] = *pointer;
         pointer = pointer->p;
     }
-    /// Log the complete path.
-    for (int i = 0; i < path.size; ++i){
-        log.trace("State {}: (x:{:+.2f}, y:{:+.2f}, z:{:+.2f}, v:{:+.2f}, w:{:+.2f}, c:{:+.2f})", i, path.array[i].x, path.array[i].y, path.array[i].z, path.array[i].v, path.array[i].w, path.array[i].c);
-    }
+    #ifdef DEBUG
+        /// Log the complete path.
+        for (int i = 0; i < path.size; ++i){
+            log.trace("State {}: (x:{:+.2f}, y:{:+.2f}, z:{:+.2f}, v:{:+.2f}, w:{:+.2f}, c:{:+.2f})", i, path.array[i].x, path.array[i].y, path.array[i].z, path.array[i].v, path.array[i].w, path.array[i].c);
+        }
+    #endif
     return path;
 }
 
