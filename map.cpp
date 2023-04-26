@@ -2,13 +2,12 @@
 #include "map.hpp"
 #include "objects.hpp"
 #include "logger.hpp"
-#include "SETTINGS.hpp"
+#include "debug.hpp"
 
 void Map::find_segments(){
     #ifdef DEBUG
         static Logger log(__FUNCTION__);
     #endif
-
     /// Performs image thresholding on a grayscale image using a threshold value of 250 and creates a binary image.
     #ifdef DEBUG
         log.debug("threshold()");
@@ -19,7 +18,6 @@ void Map::find_segments(){
         cv::imshow("Image", this->image);
         cv::imshow("Binary", binary);
     #endif
-
     /// Performs morphological dilation on a binary image using a 3x3 rectangular structuring element, repeated "MAP_obstacles_dilation" times. 1:1px
     #ifdef DEBUG
         log.debug("dilate()");
@@ -32,7 +30,6 @@ void Map::find_segments(){
     #ifdef DEBUG
         cv::imshow("Dilated", binary);
     #endif
-
     /// Detects contours on a binary image using 'findContours()' function and stores the detected contours and their hierarchy in 'contours' and 'hierarchy' respectively.
     #ifdef DEBUG
         log.debug("findContours()");
@@ -52,9 +49,9 @@ void Map::find_segments(){
         double epsilon = this->epsilon * arcLength(contours[i], true);
         approxPolyDP(contours[i], polygon, epsilon, true);
         int polygonSize = polygon.size();
-
         /// Checks for a single point obstacle and creates a Segment object with its coordinates as start and end points. It then adds the Segment object to a vector of obstacle segments.
-        if (polygonSize == 1){
+        if (polygonSize == 1)
+        {
             cv::Point a = polygon[0];
             Segment seg(a, a);
             this->segments.push_back(seg);
@@ -63,9 +60,9 @@ void Map::find_segments(){
                 log.trace("Obstacle Point ({}, {})", a.x, a.y);
             #endif
         }
-
         /// Checks for a two-point obstacle and creates a Segment object with the two points as start and end points. It then adds the Segment object to a vector of obstacle segments.
-        else if (polygonSize == 2){
+        else if (polygonSize == 2)
+        {
             cv::Point a = polygon[0];
             cv::Point b = polygon[1];
             Segment seg(a, b);
@@ -75,10 +72,11 @@ void Map::find_segments(){
                 log.trace("Obstacle Segment ({}, {}) ({}, {})", a.x, a.y, b.x, b.y);
             #endif
         }
-
         /// Checks if the polygon has more than 2 points. If so, it creates segments between each pair of adjacent points and adds them to a vector of obstacle segments.
-        else if (polygonSize > 2){
-            for (int j = 0; j < polygonSize; ++j){
+        else if (polygonSize > 2)
+        {
+            for (int j = 0; j < polygonSize; ++j)
+            {
                 if (j == 0)
                 {
                     cv::Point a = polygon[polygonSize-1];
@@ -104,20 +102,11 @@ void Map::find_segments(){
             }
         }
     }
-
     #ifdef DEBUG
         /// Show the result
         cv::Mat polygonImage;
         threshold(invertedPolygonImage, polygonImage, 128, 255, cv::THRESH_BINARY_INV);
         imshow("Polygon", polygonImage);
         log.debug("Total Segments: {}", this->segments.size());
-
-        /// Draw on colored image
-        cv::cvtColor(this->image, this->colored, cv::COLOR_GRAY2BGR);
-        for (Segment seg: this->segments)
-        {
-            line(this->colored, seg.p, seg.q, cv::Scalar(0x1C, 0x57, 0xDD), 1, cv::LINE_AA);
-        }
-        imshow("RRT* WOA", this->colored);
     #endif
 }

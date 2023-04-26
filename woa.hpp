@@ -5,7 +5,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
-#include "SETTINGS.hpp"
+#include "debug.hpp"
 
 extern nlohmann::json mySettings;
 
@@ -76,5 +76,12 @@ class WOA
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
         long double NormalizeAngle(long double angle);
+        bool IsObstacleFree(State& sNew);
+        bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
+        int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
+        bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
+
+
+
 };
 #endif

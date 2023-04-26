@@ -2,7 +2,7 @@
 #define LOGGER_HPP
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include "SETTINGS.hpp"
+#include "debug.hpp"
 
 class Logger{
     public:

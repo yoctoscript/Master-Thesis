@@ -9,7 +9,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <random>
-#include "SETTINGS.hpp"
+#include "debug.hpp"
 
 extern nlohmann::json mySettings;
 extern Map myMap;
@@ -105,8 +105,9 @@ void WOA::CalculateFitness()
     double long bestFitness = std::numeric_limits<long double>::max();
     long double fitness;
     long double x, y, z;
-    long double distanceToRand, distanceToGoal;
-    long double w1 = 0.4, w2 = 0.4, w3;
+    long double distanceToRand, distanceToGoal, isObstacleFree;
+    long double w1 = mySettings["WOA_random_weight"];
+    long double w2 = mySettings["WOA_goal_weight"];
     int bestIndex = 0;
     for (int i = 0; i < this->population; ++i)
     {
@@ -115,7 +116,7 @@ void WOA::CalculateFitness()
         z = this->whales[i].z = (this->sNear.z) + CalculateAngle(this->whales[i].w);
         distanceToRand = CalculateEuclideanDistance(this->whales[i].x, this->whales[i].y, sRand.x, sRand.y);
         distanceToGoal = CalculateEuclideanDistance(this->whales[i].x, this->whales[i].y, sGoal.x, sGoal.y);
-        fitness = w2 * distanceToGoal; // to do (add more factors)(angle nominator: cos(alpha))
+        fitness = w1 * distanceToRand + w2 * distanceToGoal; // to do (add more factors)(angle nominator: cos(alpha))
         if (fitness < bestFitness)
         {
             bestFitness = fitness;
@@ -311,3 +312,55 @@ int WOA::YConvertToPixel(long double& y){
     return (int)((y + (-myMap.origin.x)) / myMap.resolution);
 }
 
+bool WOA::IsObstacleFree(State& sNew)
+{
+    #ifdef DEBUG
+        static Logger log("IsObstacleFree [Point]");
+    #endif
+    int x = XConvertToPixel(sNew.x);
+    int y = YConvertToPixel(sNew.y);
+    cv::Point p(x, y);
+    for (auto& segment: myMap.segments)
+    {
+        if (DoIntersect(p, p, segment.p, segment.q))
+        {
+            #ifdef DEBUG
+                log.trace("State (x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y);
+            #endif
+            return false;
+        }
+    }
+    #ifdef DEBUG
+        log.trace("State (x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y);
+    #endif
+    return true;
+}
+
+bool WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2)
+{
+    int o1 = Orientation(p1, q1, p2);
+    int o2 = Orientation(p1, q1, q2);
+    int o3 = Orientation(p2, q2, p1);
+    int o4 = Orientation(p2, q2, q1);
+    if (o1 != o2 && o3 != o4)
+        return true;
+    if (o1 == 0 && OnSegment(p1, p2, q1)) return true;
+    if (o2 == 0 && OnSegment(p1, q2, q1)) return true;
+    if (o3 == 0 && OnSegment(p2, p1, q2)) return true;  
+    if (o4 == 0 && OnSegment(p2, q1, q2)) return true;
+    return false;
+}
+
+int WOA::Orientation(cv::Point& p, cv::Point& q, cv::Point& r)
+{
+    int val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    if (val == 0) return 0;  // collinear
+    return (val > 0)? 1: 2; // clock or counterclock wise
+}
+
+bool WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r)
+{
+    if (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) && q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y))
+       return true;
+    return false;
+}
