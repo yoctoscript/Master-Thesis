@@ -71,7 +71,7 @@ Path RRT_Star::Build(){
             #ifdef DEBUG
                 log.debug("State {}: RewireTree()", this->count);
             #endif
-            RewireTree(psNew, neighbors);
+            //RewireTree(psNew, neighbors);
         }
         else
         {
@@ -423,21 +423,9 @@ void RRT_Star::CleanUp(){
 
 
 
-
-
-
-
-
-
 //**********************************************************************
 // This is utility section
 //**********************************************************************        
-
-
-
-
-
-
 
 
 
@@ -491,14 +479,6 @@ bool RRT_Star::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r){
     return false;
 }
 
-int RRT_Star::XConvertToPixel(long double& x){
-    return (int)((x + (-myMap.origin.x)) / myMap.resolution);
-}
-
-int RRT_Star::YConvertToPixel(long double& y){
-    return (int)((y + (-myMap.origin.y)) / myMap.resolution);
-}
-
 bool RRT_Star::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2){
     int o1 = Orientation(p1, q1, p2);
     int o2 = Orientation(p1, q1, q2);
@@ -511,6 +491,14 @@ bool RRT_Star::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Poin
     if (o3 == 0 && OnSegment(p2, p1, q2)) return true;  
     if (o4 == 0 && OnSegment(p2, q1, q2)) return true;
     return false;
+}
+
+int RRT_Star::XConvertToPixel(long double& x){
+    return (int)((x + (-myMap.origin.x)) / myMap.resolution);
+}
+
+int RRT_Star::YConvertToPixel(long double& y){
+    return (int)((y + (-myMap.origin.y)) / myMap.resolution);
 }
 
 long double RRT_Star::GenerateRandom(long double& a){
