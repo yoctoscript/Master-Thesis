@@ -24,6 +24,7 @@ class RRT_Star{
         long double searchRadius; /// Search radius.
         long double goalThreshold; /// Goal threshold.
         long double maxSteeringAngle; /// Max Steering Angle.
+        long double stepSize;
         int count; /// State counter.
         State* states; /// State array.
         /// Methods.
@@ -33,7 +34,6 @@ class RRT_Star{
         State SampleFreeSpace(); /// Sample free space.
         State* FindNearest(State& sRand); /// Find nearest.
         State Steer(State* sNear, State& sRand); /// Steer.
-        State SteerUsingWOA(State* sNear, State& sRand); /// Steer using WOA.
         bool IsObstacleFree(State& sNew); /// Is obstacle free (Point).
         bool IsObstacleFree(State& sNew, State& sNeighbor); /// Is obstacle free (Segment).
         std::vector<State*> GetNeighbors(State& sNew); /// Get neighbors.

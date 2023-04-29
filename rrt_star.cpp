@@ -45,7 +45,8 @@ Path RRT_Star::Build(){
         #ifdef DEBUG
             log.debug("State {}: Steer()", this->count);
         #endif
-        State sNew = SteerUsingWOA(sNear, sRand);
+        ///State sNew = SteerUsingWOA(sNear, sRand);
+        State sNew = Steer(sNear, sRand);
         if (IsObstacleFree(sNew))
         {
             #ifdef DEBUG
@@ -71,7 +72,7 @@ Path RRT_Star::Build(){
             #ifdef DEBUG
                 log.debug("State {}: RewireTree()", this->count);
             #endif
-            //RewireTree(psNew, neighbors);
+            RewireTree(psNew, neighbors);
         }
         else
         {
@@ -88,11 +89,8 @@ Path RRT_Star::Build(){
 void RRT_Star::Initialize()
 {
     this->iterations = mySettings["RRT*_iterations"];
-    this->timeStep = mySettings["RRT*_time_step"];
-    this->linearVelocity = mySettings["RRT*_linear_velocity"];
-    this->angularVelocity = mySettings["RRT*_angular_velocity"];
+    this->stepSize = mySettings["RRT*_step_size"];
     this->searchRadius = mySettings["RRT*_search_radius"];
-    this->maxSteeringAngle = mySettings["RRT*_max_steering_angle"];
     this->goalThreshold = mySettings["RRT*_goal_threshold"];
     this->states = new State[this->iterations];
     return;
@@ -139,12 +137,6 @@ State* RRT_Star::FindNearest(State& sRand)
         log.trace("sNear (x:{:.2f}, y:{:.2f}, z:{:.2f})", sNear->x, sNear->y, sNear->z);
     #endif
     return sNear;
-}
-
-State RRT_Star::SteerUsingWOA(State* sNear, State& sRand)
-{
-    WOA woa(*sNear, sRand, this->sGoal);
-    return woa.Apply();
 }
 
 bool RRT_Star::IsObstacleFree(State& sNew)
@@ -207,13 +199,11 @@ std::vector<State*> RRT_Star::GetNeighbors(State& sNew)
     for (int i = 0; i < this->count; ++i)
     {
         long double distance = CalculateEuclideanDistance(sNew.x, sNew.y, this->states[i].x, this->states[i].y);
-        if (distance < this->searchRadius){
-            if (fabs(sNew.z - this->states[i].z) < this->maxSteeringAngle)
+        if (distance < this->searchRadius)
+        {
+            if (IsObstacleFree(sNew, this->states[i]))
             {
-                if (IsObstacleFree(sNew, this->states[i]))
-                {
-                    neighbors.push_back(&this->states[i]);
-                }
+                neighbors.push_back(&this->states[i]);
             }
         }
     }
@@ -238,11 +228,8 @@ State* RRT_Star::ChooseParent(State& sNew, std::vector<State*>& neighbors)
 
 State* RRT_Star::Insert(State& sNew, State* sParent)
 {
-    Velocity velocity = InverseOdometry(sNew, *sParent);
     long double cost = CalculateCost(sNew, *sParent);
     sNew.p = sParent;
-    sNew.v = velocity.v;
-    sNew.w = velocity.w;
     sNew.c = sParent->c + cost;
     this->states[this->count] = sNew;
     return &this->states[this->count];
@@ -268,15 +255,12 @@ void RRT_Star::RewireTree(State* sNew, std::vector<State*>& neighbors)
                     temp = temp->p;
                 }
             }
-            if (temp == sNew) // If cycle happened. Revert to old parent.
+            if (temp == sNew) // If cycle happened.
             {
                 continue;
             }
             neighbor->p = sNew;
             neighbor->c = cost;
-            Velocity velocity = InverseOdometry(*neighbor, *sNew);
-            neighbor->v = velocity.v;
-            neighbor->w = velocity.w;
         }
     }
     return;
@@ -321,6 +305,7 @@ void RRT_Star::Render(Path& path)
         line(myMap.colored, segment.p, segment.q, cv::Scalar(0x00, 0x24, 0xFF), 1, cv::LINE_AA);
     }
 
+    cv::Mat image = myMap.colored.clone();
     /// Draw shortest path.
     for (int i = 1; i < path.size; ++i)
     {
@@ -332,36 +317,17 @@ void RRT_Star::Render(Path& path)
         x = XConvertToPixel(b.x);
         y = YConvertToPixel(b.y);
         cv::Point q(x, y); 
-        line(myMap.colored, p, q, cv::Scalar(0x00, 0x00, 0x00), 5, cv::LINE_AA);
-        line(myMap.colored, p, q, cv::Scalar(0xBC, 0x44, 0x39), 3, cv::LINE_AA);
+        line(image, p, q, cv::Scalar(0x00, 0x00, 0x00), 5, cv::LINE_AA);
+        line(image, p, q, cv::Scalar(0xBC, 0x44, 0x39), 3, cv::LINE_AA);
     }
 
-    /// Testing the path
-    long double X, Y, Z;
-    X = path.array[0].x;
-    Y = path.array[0].y;
-    Z = path.array[0].z;
-    for (int i = 1; i < path.size; ++i)
-    {
-        x = XConvertToPixel(X);
-        y = YConvertToPixel(Y);
-        cv::Point p(x,y);
-        X = X - CalculateDistance(path.array[i].v) * sin(Z + CalculateAngle(path.array[i].w) / 2.0l);
-        Y = Y + CalculateDistance(path.array[i].v) * cos(Z + CalculateAngle(path.array[i].w) / 2.0l);
-        Z = Z + CalculateAngle(path.array[i].w);
-        x = XConvertToPixel(X);
-        y = YConvertToPixel(Y);
-        cv::Point q(x,y);
-        line(myMap.colored, p, q, cv::Scalar(0x00, 0x00, 0x00), 5, cv::LINE_AA);
-        line(myMap.colored, p, q, cv::Scalar(0x4A, 0xC0, 0x03), 3, cv::LINE_AA);
-    }
-    cv::imshow("RRT* WOA", myMap.colored);
+    cv::imshow("RRT*", image);
 }
 
 Path RRT_Star::ShortestPath(){
-    #ifdef DEBUG
-        static Logger log(__FUNCTION__);
-    #endif
+    //#ifdef DEBUG
+    static Logger log(__FUNCTION__);
+    //#endif
     double lowestCost = std::numeric_limits<long double>::max();
     State* bestState = nullptr;
     /// Find the state that lies within goal region and has the lowest cost.
@@ -381,9 +347,9 @@ Path RRT_Star::ShortestPath(){
     Path path;
     if (!bestState)
     {
-        #ifdef DEBUG
+        //#ifdef DEBUG
             log.error("No path found");
-        #endif
+        //#endif
         exit(1);
     }
     #ifdef DEBUG
@@ -396,7 +362,6 @@ Path RRT_Star::ShortestPath(){
         ++i;
         pointer = pointer->p;
     }
-
     /// Copy the states into the path array.
     pointer = bestState;
     path.size = i;
@@ -511,45 +476,17 @@ long double RRT_Star::GenerateRandom(long double& a){
 
 State RRT_Star::Steer(State* sNear, State& sRand)
 {
-    #ifdef DEBUG
-        static Logger log(__FUNCTION__);
-    #endif
-    std::vector<long double> angularVelocities = angularVelocity.get<std::vector<long double>>();
-    int N = angularVelocities.size();
-    long double angVel[N], dist[N], x_temp[N], y_temp[N];
-    // Copy angular velocities into the array.
-    for (int i = 0; i < N; i++)
-    {
-        angVel[i] = angularVelocities[i];
-    }
-    // Calculate resulting states and their distance to 's_rand'.
-    for (int i = 0; i < N; ++i)
-    {
-        x_temp[i] = (sNear->x) - CalculateDistance(this->linearVelocity) * sin(sNear->z + CalculateAngle(angVel[i]) / 2.0l);
-        y_temp[i] = (sNear->y) + CalculateDistance(this->linearVelocity) * cos(sNear->z + CalculateAngle(angVel[i]) / 2.0l);
-        dist[i] = CalculateEuclideanDistance(sRand.x, sRand.y, x_temp[i], y_temp[i]);
-    }
-    // Sort arrays by distance.
-    for (int i = 0; i < N-1; ++i)
-    {
-        for (int j = 0; j < N-i-1; ++j)
-        {
-            if (dist[j] > dist[j+1])
-            {
-                Swap(&angVel[j], &angVel[j+1]);
-                Swap(&dist[j], &dist[j+1]);
-                Swap(&x_temp[j], &x_temp[j+1]);
-                Swap(&y_temp[j], &y_temp[j+1]);
-            }
-        }
-    }
-    // Choose the closest as 'sNew'.
-    State sNew;
-    sNew.x = x_temp[0];
-    sNew.y = y_temp[0];
-    sNew.z =  sNear->z + CalculateAngle(angVel[0]);
-    #ifdef DEBUG
-        log.trace("sNew (x:{:+.2f}, y:{:+.2f}, z:{:+.2f})", sNew.x, sNew.y, sNew.z);
-    #endif
+    double dx = sRand.x - sNear->x;
+    double dy = sRand.y - sNear->y;
+    double mag = std::sqrt(dx*dx + dy*dy);
+    double unitX = dx / mag;
+    double unitY = dy / mag;
+    double x = sNear->x + this->stepSize * unitX;
+    double y = sNear->y + this->stepSize * unitY;
+    if (x < myMap.origin.x) x = myMap.origin.x;
+    else if (x > -myMap.origin.x) x = -myMap.origin.x;
+    if (y < myMap.origin.y) y = myMap.origin.y;
+    else if (y > -myMap.origin.y) y = -myMap.origin.y;
+    State sNew(x, y);
     return sNew;
 }

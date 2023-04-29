@@ -12,34 +12,33 @@ extern nlohmann::json mySettings;
 class WOA
 {
     public:
-        WOA(State sNear, State sRand, State sGoal)
+        WOA(Path* path)
         {
             #ifdef DEBUG
                 static Logger log(__FUNCTION__);
             #endif
-            this->sNear = sNear;
-            this->sRand = sRand;
-            this->sGoal = sGoal;
+            this->rrtStarPath = path;
+            this->size = path->size;
             this->_a = mySettings["WOA_a"];
             this->a = this->_a;
             this->b = mySettings["WOA_b"];
             this->population = mySettings["WOA_population"];
             this->_iterations = mySettings["WOA_iterations"];
             this->iterations = this->_iterations;
-            this->minLinearVelocity = mySettings["WOA_min_linear_velocity"];
-            this->maxLinearVelocity = mySettings["WOA_max_linear_velocity"];
-            this->minAngularVelocity = mySettings["WOA_min_angular_velocity"];
-            this->maxAngularVelocity = mySettings["WOA_max_angular_velocity"];
+            this->heightBound = mySettings["WOA_height_bound"];
+            this->widthBound = mySettings["WOA_width_bound"];
+            this->shortnessWeight = mySettings["WOA_shortness_weight"];
             #ifdef DEBUG
                 log.trace("a: {:.2f} | population: {} | iterations: {}", this->_a, this->population, this->iterations);
             #endif
         }
-        State Apply(); /// Main function.
+        Path* Apply(); /// Main function.
         /// Fields.
-        State sNear; /// Near state.
-        State sRand; /// Random state.
-        State sGoal; /// Goal state.
-        State sBest; /// Best state.
+        Path* rrtStarPath;
+        int size;
+        Path* particles;
+        Path* random;
+        Path* best;
         int i;
         int population;
         int _iterations; /// Constant
@@ -52,11 +51,11 @@ class WOA
         long double p;
         long double l;
         long double b;
-        long double minLinearVelocity;
-        long double maxLinearVelocity;
-        long double minAngularVelocity;
-        long double maxAngularVelocity;
-        State* whales; /// Array of particles.
+        long double heightBound;
+        long double widthBound;
+        long double shortnessWeight;
+        long double collisionWeight;
+        long double bestFitness;
         /// Methods.
         void InitializePopulation();
         void CalculateFitness();
@@ -76,12 +75,9 @@ class WOA
         int XConvertToPixel(long double& x);
         int YConvertToPixel(long double& y);
         long double NormalizeAngle(long double angle);
-        bool IsObstacleFree(State& sNew);
+        bool IsObstacleFree(State& sNew, State& sNeighbor);
         bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
         int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
         bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
-
-
-
 };
 #endif

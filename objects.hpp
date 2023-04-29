@@ -30,7 +30,7 @@ class State{
         long double v; /// Linear velocity.
         long double w; /// Angular velocity.
         long double t; /// Duration.
-        long double c; /// Cost.
+        long double c; /// Cost.= Euclidean distance
 };
 
 class Segment{

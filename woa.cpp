@@ -15,7 +15,7 @@ extern nlohmann::json mySettings;
 extern Map myMap;
 extern cv::VideoWriter* myVideo;
 
-State WOA::Apply()
+Path* WOA::Apply()
 {
     #ifdef DEBUG
         static Logger log(__FUNCTION__);
@@ -70,13 +70,13 @@ State WOA::Apply()
         #ifdef DEBUG
             log.debug("RenderParticles()");
         #endif
-        //RenderParticles();
+        RenderParticles();
     }
     #ifdef DEBUG
         log.debug("CleanUp()");
     #endif
     CleanUp();
-    return this->sBest;
+    return this->best;
 }
 
 void WOA::InitializePopulation()
@@ -84,13 +84,32 @@ void WOA::InitializePopulation()
     #ifdef DEBUG
         static Logger log(__FUNCTION__);
     #endif
-    this->whales = new State[this->population];
-    for (int i = 0; i < this->population; ++i)
+    this->particles = new Path[this->population];
+    particles[0].array = new State[this->size];
+    for (int i = 0; i < this->size; ++i)
     {
-        long double linearVelocity = GenerateRandom(this->minLinearVelocity, this->maxLinearVelocity);
-        long double angularVelocity = GenerateRandom(this->minAngularVelocity, this->maxAngularVelocity);
-        this->whales[i].v = linearVelocity;
-        this->whales[i].w = angularVelocity;
+        particles[0].array[i] = rrtStarPath->array[i];
+    }
+    for (int i = 1; i < this->population; ++i)
+    {
+        particles[i].array = new State[this->size];
+        for (int j = 0; j < this->size; ++j)
+        {
+            if (j == 0)
+            {
+                this->particles[i].array[j].x = this->rrtStarPath->array[j].x;
+                this->particles[i].array[j].y = this->rrtStarPath->array[j].y;
+                continue;
+            }
+            else if (j == this->size-1)
+            {
+                this->particles[i].array[j].x = this->rrtStarPath->array[j].x;
+                this->particles[i].array[j].y = this->rrtStarPath->array[j].y;
+                continue;
+            }
+            this->particles[i].array[j].x = GenerateRandom(this->rrtStarPath->array[j].x - this->widthBound, this->rrtStarPath->array[j].x + this->widthBound);
+            this->particles[i].array[j].y = GenerateRandom(this->rrtStarPath->array[j].y - this->heightBound, this->rrtStarPath->array[j].y + this->heightBound);
+        }
         #ifdef DEBUG
             log.trace("Whale {} (Linear: {:.2f}, Angular: {:.2f})", i, this->whales[i].v, this->whales[i].w);
         #endif
@@ -102,31 +121,29 @@ void WOA::CalculateFitness()
     #ifdef DEBUG
         static Logger log(__FUNCTION__);
     #endif
-    double long bestFitness = std::numeric_limits<long double>::max();
-    long double fitness;
-    long double x, y, z;
-    long double distanceToRand, distanceToGoal, isObstacleFree;
-    long double w1 = mySettings["WOA_random_weight"];
-    long double w2 = mySettings["WOA_goal_weight"];
     int bestIndex = 0;
+    this->bestFitness = std::numeric_limits<long double>::max();
+    long double fitness, shortness, collision;
     for (int i = 0; i < this->population; ++i)
     {
-        x = this->whales[i].x = (this->sNear.x) - CalculateDistance(this->whales[i].v)*sin(this->sNear.z + CalculateAngle(this->whales[i].w)/2.0l);
-        y = this->whales[i].y = (this->sNear.y) + CalculateDistance(this->whales[i].v)*cos(this->sNear.z + CalculateAngle(this->whales[i].w)/2.0l);
-        z = this->whales[i].z = (this->sNear.z) + CalculateAngle(this->whales[i].w);
-        distanceToRand = CalculateEuclideanDistance(this->whales[i].x, this->whales[i].y, sRand.x, sRand.y);
-        distanceToGoal = CalculateEuclideanDistance(this->whales[i].x, this->whales[i].y, sGoal.x, sGoal.y);
-        fitness = w1 * distanceToRand + w2 * distanceToGoal; // to do (add more factors)(angle nominator: cos(alpha))
-        if (fitness < bestFitness)
+        shortness = 0.0l;
+        collision = 0.0l;
+        for (int j = 1; j < this->size; ++j)
         {
-            bestFitness = fitness;
+            shortness += CalculateEuclideanDistance(this->particles[i].array[j-1].x, this->particles[i].array[j-1].y, this->particles[i].array[j].x, this->particles[i].array[j].y);
+            collision += IsObstacleFree(this->particles[i].array[j-1], this->particles[i].array[j]) ? 0.0l : std::numeric_limits<long double>::max();
+        }
+        fitness = shortnessWeight * shortness + collision;
+        if (fitness < this->bestFitness)
+        {
+            this->bestFitness = fitness;
             bestIndex = i;
         }
         #ifdef DEBUG
             log.trace("Whale {} (x: {:.2f}, y:{:.2f}, z:{:.2f}) | Fitness: {:.2f}", i, x, y, z, fitness);
         #endif
     }
-    this->sBest = this->whales[bestIndex];
+    this->best = &this->particles[bestIndex];
     #ifdef DEBUG
         log.trace("Best Whale: {}, Fitness: {:.2f}", bestIndex, bestFitness);
     #endif
@@ -150,58 +167,37 @@ void WOA::CoefficientUpdate()
 
 void WOA::CircleUpdate()
 {
-    #ifdef DEBUG
-        static Logger log(__FUNCTION__);
-        long double oldV = this->whales[this->i].v;
-        long double oldW = this->whales[this->i].w;
-    #endif
-    long double Dv = fabs((this->C * this->sBest.v) - this->whales[this->i].v);
-    long double Dw = fabs((this->C * this->sBest.w) - this->whales[this->i].w);
-    this->whales[this->i].v = this->sBest.v - (this->A * Dv);
-    this->whales[this->i].w = this->sBest.w - (this->A * Dw);
-    #ifdef DEBUG
-    long double newV = this->whales[this->i].v;
-    long double newW = this->whales[this->i].w;
-        log.trace("Whale {} (Linear: {:.2f} => {:.2f})(Angular: {:.2f} => {:.2f})", this->i, oldV, newV, oldW, newW);
-    #endif
+    for (int j = 1; j < this->size-1; ++j)
+    {
+        long double Dx = fabs((this->C * this->best->array[j].x) - this->particles[this->i].array[j].x);
+        long double Dy = fabs((this->C * this->best->array[j].y) - this->particles[this->i].array[j].y);
+        this->particles[this->i].array[j].x = this->best->array[j].x - (this->A * Dx);
+        this->particles[this->i].array[j].y = this->best->array[j].y - (this->A * Dy);
+    }
 }
 
 void WOA::RandomUpdate()
 {
-    #ifdef DEBUG
-        static Logger log(__FUNCTION__);
-        long double oldV = this->whales[this->i].v;
-        long double oldW = this->whales[this->i].w;
-    #endif
     int index = GenerateRandom(0, this->population);
-    State sRand = this->whales[index];
-    long double Dv = fabs((this->C * sRand.v) - this->whales[this->i].v);
-    long double Dw = fabs((this->C * sRand.w) - this->whales[this->i].w);
-    this->whales[this->i].v = sRand.v - (this->A * Dv);
-    this->whales[this->i].w = sRand.w - (this->A * Dw);
-    #ifdef DEBUG
-        long double newV = this->whales[this->i].v;
-        long double newW = this->whales[this->i].w;
-        log.trace("Whale {} (Linear: {:.2f} => {:.2f})(Angular: {:.2f} => {:.2f})", this->i, oldV, newV, oldW, newW);
-    #endif
+    this->random = &this->particles[index];
+     for (int j = 1; j < this->size-1; ++j)
+    {
+        long double Dx = fabs((this->C * this->random->array[j].x) - this->particles[this->i].array[j].x);
+        long double Dy = fabs((this->C * this->random->array[j].y) - this->particles[this->i].array[j].y);
+        this->particles[this->i].array[j].x = this->random->array[j].x - (this->A * Dx);
+        this->particles[this->i].array[j].y = this->random->array[j].y - (this->A * Dy);
+    }
 }
 
 void WOA::SpiralUpdate()
 {
-    #ifdef DEBUG
-        static Logger log(__FUNCTION__);
-        long double oldV = this->whales[this->i].v;
-        long double oldW = this->whales[this->i].w;
-    #endif
-    long double Dv = fabs(this->sBest.v - this->whales[this->i].v);
-    long double Dw = fabs(this->sBest.w - this->whales[this->i].w);
-    this->whales[this->i].v = Dv * exp(b*l) * cos(2* M_PI * l) + whales[this->i].v;
-    this->whales[this->i].w = Dv * exp(b*l) * cos(2* M_PI * l) + whales[this->i].w;
-    #ifdef DEBUG
-        long double newV = this->whales[this->i].v;
-        long double newW = this->whales[this->i].w;
-        log.trace("Whale {} (Linear: {:.2f} => {:.2f})(Angular: {:.2f} => {:.2f})", this->i, oldV, newV, oldW, newW);
-    #endif
+    for (int j = 1; j < this->size-1; ++j)
+    {
+        long double Dx = fabs(this->best->array[j].x - this->particles[this->i].array[j].x);
+        long double Dy = fabs(this->best->array[j].y - this->particles[this->i].array[j].y);
+        this->particles[this->i].array[j].x = Dx * exp(b*l) * cos(2* M_PI * l) + this->particles[this->i].array[j].x;
+        this->particles[this->i].array[j].y = Dy * exp(b*l) * cos(2* M_PI * l) + this->particles[this->i].array[j].y;
+    }
 }
 
 void WOA::CheckBoundary()
@@ -209,22 +205,26 @@ void WOA::CheckBoundary()
     static Logger log(__FUNCTION__);
     for (int i = 0; i < this->population; ++i)
     {
-        if (this->whales[i].v > this->maxLinearVelocity)
+        for (int j = 1; j < this->size-1; ++j)
         {
-            this->whales[i].v = this->maxLinearVelocity;
+            if (this->particles[i].array[j].x > (this->rrtStarPath->array[j].x + this->widthBound))
+            {
+                this->particles[i].array[j].x = (this->rrtStarPath->array[j].x + this->widthBound);
+            }
+            else if (this->particles[i].array[j].x < (this->rrtStarPath->array[j].x - this->widthBound))
+            {
+                this->particles[i].array[j].x = (this->rrtStarPath->array[j].x - this->widthBound);
+            }
+            if (this->particles[i].array[j].y > (this->rrtStarPath->array[j].y + this->heightBound))
+            {
+                this->particles[i].array[j].y = (this->rrtStarPath->array[j].y + this->heightBound);
+            }
+            else if (this->particles[i].array[j].y < (this->rrtStarPath->array[j].y - this->heightBound))
+            {
+                this->particles[i].array[j].y = (this->rrtStarPath->array[j].y - this->heightBound);
+            }
         }
-        else if (this->whales[i].v < this->minLinearVelocity)
-        {
-            this->whales[i].v = this->minLinearVelocity;
-        }
-        if (this->whales[i].w > this->maxAngularVelocity)
-        {
-            this->whales[i].w = this->maxAngularVelocity;
-        }
-        else if (this->whales[i].w < this->minAngularVelocity)
-        {
-            this->whales[i].w = this->minAngularVelocity;
-        }
+        
     }
 }
 
@@ -232,41 +232,52 @@ void WOA::RenderParticles()
 {
     static Logger log(__FUNCTION__);
     cv::Mat image(500, 500, CV_8UC1, cv::Scalar(255, 255, 255));
-    image = myMap.image.clone();
+    image = myMap.colored.clone();
     /// Draw all particles.
     int x, y;
     for (int i = 0; i < this->population; ++i){
-        x = XConvertToPixel(this->whales[i].x);
-        y = YConvertToPixel(this->whales[i].y);
-        cv::Point p(x, y); 
-        circle(image, p, 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
-
+        for (int j = 1; j < this->size; ++j)
+        {
+            x = XConvertToPixel(this->particles[i].array[j-1].x);
+            y = YConvertToPixel(this->particles[i].array[j-1].y);
+            cv::Point p(x, y);
+            x = XConvertToPixel(this->particles[i].array[j].x);
+            y = YConvertToPixel(this->particles[i].array[j].y);
+            cv::Point q(x, y);
+            line(image, p, q, cv::Scalar(0x4B, 0x42, 0x3E), 1, cv::LINE_AA);
+        }
+    }
+    for (int j = 1; j < this->size; ++j)
+    {
+        x = XConvertToPixel(this->best->array[j-1].x);
+        y = YConvertToPixel(this->best->array[j-1].y);
+        cv::Point p(x, y);
+        x = XConvertToPixel(this->best->array[j].x);
+        y = YConvertToPixel(this->best->array[j].y);
+        cv::Point q(x, y);
+        line(image, p, q, cv::Scalar(0x43, 0xB0, 0x3C), 5, cv::LINE_AA);
     }
 
     /// Goal configuration
-    x = XConvertToPixel(this->sGoal.x);
-    y = YConvertToPixel(this->sGoal.y);      
+    x = XConvertToPixel(this->best->array[this->size-1].x);
+    y = YConvertToPixel(this->best->array[this->size-1].y);      
     cv::Point goal(x, y);
     circle(image, goal, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
     /// Init configuration
-    x = XConvertToPixel(this->sNear.x);
-    y = YConvertToPixel(this->sNear.y);
+    x = XConvertToPixel(this->best->array[0].x);
+    y = YConvertToPixel(this->best->array[0].y);
     cv::Point init(x, y);
     circle(image, init, 3, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
 
-    cv::imshow("WOA", image);
+    cv::imshow("RRT* WOA", image);
     cv::waitKey(0);
-    
-    cv::Mat grayImage3C;
-    cv::cvtColor(image, grayImage3C, cv::COLOR_GRAY2BGR);
-
-    myVideo->write(grayImage3C);
+    myVideo->write(image);
 }
 
 void WOA::CleanUp()
 {
-    delete this->whales;
+    ;
 }
 
 /// ------------------------------------------------------------------------------------ 
@@ -303,37 +314,14 @@ long double WOA::CalculateAngle(long double& w){
     return (w * timeStep);
 }
 
-int WOA::XConvertToPixel(long double& x){
-
+int WOA::XConvertToPixel(long double& x)
+{
     return (int)((x + (-myMap.origin.x)) / myMap.resolution);
 }
 
-int WOA::YConvertToPixel(long double& y){
-    return (int)((y + (-myMap.origin.x)) / myMap.resolution);
-}
-
-bool WOA::IsObstacleFree(State& sNew)
+int WOA::YConvertToPixel(long double& y)
 {
-    #ifdef DEBUG
-        static Logger log("IsObstacleFree [Point]");
-    #endif
-    int x = XConvertToPixel(sNew.x);
-    int y = YConvertToPixel(sNew.y);
-    cv::Point p(x, y);
-    for (auto& segment: myMap.segments)
-    {
-        if (DoIntersect(p, p, segment.p, segment.q))
-        {
-            #ifdef DEBUG
-                log.trace("State (x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y);
-            #endif
-            return false;
-        }
-    }
-    #ifdef DEBUG
-        log.trace("State (x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y);
-    #endif
-    return true;
+    return (int)((y + (-myMap.origin.x)) / myMap.resolution);
 }
 
 bool WOA::DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2)
@@ -363,4 +351,31 @@ bool WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r)
     if (q.x <= std::max(p.x, r.x) && q.x >= std::min(p.x, r.x) && q.y <= std::max(p.y, r.y) && q.y >= std::min(p.y, r.y))
        return true;
     return false;
+}
+
+bool WOA::IsObstacleFree(State& sNew, State& sNeighbor)
+{
+    #ifdef DEBUG
+        static Logger log("IsObstacleFree [Segment]");
+    #endif
+    int pX = XConvertToPixel(sNew.x);
+    int pY = YConvertToPixel(sNew.y);
+    cv::Point p(pX, pY);
+    int qX = XConvertToPixel(sNeighbor.x);
+    int qY = YConvertToPixel(sNeighbor.y);
+    cv::Point q(qX, qY);
+    for (auto& segment: myMap.segments)
+    {
+        if (DoIntersect(p, q, segment.p, segment.q))
+        {
+            #ifdef DEBUG
+                log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is not free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+            #endif
+            return false;
+        }
+    }
+    #ifdef DEBUG
+        log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
+    #endif
+    return true;
 }
