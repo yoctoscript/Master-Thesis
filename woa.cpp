@@ -26,6 +26,8 @@ Path* WOA::Apply()
         log.debug("CalculateFitness()");
     #endif
     CalculateFitness();
+                RenderParticles();
+
     while (this->iterations--)
     {
         for (this->i = 0; this->i < this->population; ++(this->i))
@@ -34,9 +36,11 @@ Path* WOA::Apply()
                 log.debug("CoefficientUpdate()");
             #endif
             CoefficientUpdate();
-            if ((this->p) < 0.5L)
+            if ((this->p) < 0.5l)
+            //if (false)
             {
-                if (fabs(this->A) < 0.5L)
+                if (fabs(this->A) < 0.5l)
+                //if(true)
                 {
                     #ifdef DEBUG
                         log.debug("CircleUpdate()");
@@ -70,7 +74,8 @@ Path* WOA::Apply()
         #ifdef DEBUG
             log.debug("RenderParticles()");
         #endif
-        RenderParticles();
+        if (this->iterations == 1)
+            RenderParticles();
     }
     #ifdef DEBUG
         log.debug("CleanUp()");
@@ -85,6 +90,7 @@ void WOA::InitializePopulation()
         static Logger log(__FUNCTION__);
     #endif
     this->particles = new Path[this->population];
+    particles[0].size = this->size;
     particles[0].array = new State[this->size];
     for (int i = 0; i < this->size; ++i)
     {
@@ -92,6 +98,7 @@ void WOA::InitializePopulation()
     }
     for (int i = 1; i < this->population; ++i)
     {
+        particles[i].size = this->size;
         particles[i].array = new State[this->size];
         for (int j = 0; j < this->size; ++j)
         {
@@ -110,14 +117,15 @@ void WOA::InitializePopulation()
             this->particles[i].array[j].x = GenerateRandom(this->rrtStarPath->array[j].x - this->widthBound, this->rrtStarPath->array[j].x + this->widthBound);
             this->particles[i].array[j].y = GenerateRandom(this->rrtStarPath->array[j].y - this->heightBound, this->rrtStarPath->array[j].y + this->heightBound);
         }
-        #ifdef DEBUG
-            log.trace("Whale {} (Linear: {:.2f}, Angular: {:.2f})", i, this->whales[i].v, this->whales[i].w);
-        #endif
     }
+    this->greatest.size = this->size;
+    this->greatest.array = new State[this->size];
+    this->greatestFitness = std::numeric_limits<long double>::max();
 }
 
 void WOA::CalculateFitness()
 {
+    static Logger log(__FUNCTION__);
     #ifdef DEBUG
         static Logger log(__FUNCTION__);
     #endif
@@ -131,19 +139,27 @@ void WOA::CalculateFitness()
         for (int j = 1; j < this->size; ++j)
         {
             shortness += CalculateEuclideanDistance(this->particles[i].array[j-1].x, this->particles[i].array[j-1].y, this->particles[i].array[j].x, this->particles[i].array[j].y);
-            collision += IsObstacleFree(this->particles[i].array[j-1], this->particles[i].array[j]) ? 0.0l : std::numeric_limits<long double>::max();
+            collision += IsObstacleFree(this->particles[i].array[j-1], this->particles[i].array[j]) ? 0.0l : 99999.0l;
         }
-        fitness = shortnessWeight * shortness + collision;
+        fitness = pathShortnessWeight * shortness + collisionFreeWeight * collision;
         if (fitness < this->bestFitness)
         {
             this->bestFitness = fitness;
+            this->shortestLength = shortness;
             bestIndex = i;
         }
-        #ifdef DEBUG
-            log.trace("Whale {} (x: {:.2f}, y:{:.2f}, z:{:.2f}) | Fitness: {:.2f}", i, x, y, z, fitness);
-        #endif
+
     }
     this->best = &this->particles[bestIndex];
+    if (this->bestFitness < this->greatestFitness)
+    {
+        SaveGreatest();
+        this->greatestFitness = this->bestFitness;
+    }
+    else
+    {
+        LoadGreatest();
+    }
     #ifdef DEBUG
         log.trace("Best Whale: {}, Fitness: {:.2f}", bestIndex, bestFitness);
     #endif
@@ -200,6 +216,34 @@ void WOA::SpiralUpdate()
     }
 }
 
+// void WOA::CheckBoundary()
+// {
+//     static Logger log(__FUNCTION__);
+//     for (int i = 0; i < this->population; ++i)
+//     {
+//         for (int j = 1; j < this->size-1; ++j)
+//         {
+//             if (this->particles[i].array[j].x > (this->rrtStarPath->array[j].x + this->widthBound))
+//             {
+//                 this->particles[i].array[j].x = (this->rrtStarPath->array[j].x + this->widthBound);
+//             }
+//             else if (this->particles[i].array[j].x < (this->rrtStarPath->array[j].x - this->widthBound))
+//             {
+//                 this->particles[i].array[j].x = (this->rrtStarPath->array[j].x - this->widthBound);
+//             }
+//             if (this->particles[i].array[j].y > (this->rrtStarPath->array[j].y + this->heightBound))
+//             {
+//                 this->particles[i].array[j].y = (this->rrtStarPath->array[j].y + this->heightBound);
+//             }
+//             else if (this->particles[i].array[j].y < (this->rrtStarPath->array[j].y - this->heightBound))
+//             {
+//                 this->particles[i].array[j].y = (this->rrtStarPath->array[j].y - this->heightBound);
+//             }
+//         }
+        
+//     }
+// }
+
 void WOA::CheckBoundary()
 {
     static Logger log(__FUNCTION__);
@@ -207,24 +251,34 @@ void WOA::CheckBoundary()
     {
         for (int j = 1; j < this->size-1; ++j)
         {
-            if (this->particles[i].array[j].x > (this->rrtStarPath->array[j].x + this->widthBound))
+            bool isOutside = false;
+            State* closestWaypoint;
+            long double distance, shortestDistance = std::numeric_limits<long double>::max();
+            State& current = this->particles[i].array[j];
+            for (int k = 1; k < this->size-1; ++k)
             {
-                this->particles[i].array[j].x = (this->rrtStarPath->array[j].x + this->widthBound);
+                State& original = this->rrtStarPath->array[k]; 
+                if (current.x > (original.x + this->widthBound))
+                    isOutside = true;
+                else if (current.x < (original.x - this->widthBound))
+                    isOutside = true;
+                if (current.y > (original.y + this->heightBound))
+                    isOutside = true;
+                else if (current.y < (original.y - this->heightBound))
+                    isOutside = true;
+                distance = CalculateEuclideanDistance(current.x, current.y, original.x, original.y);
+                if (distance < shortestDistance)
+                {
+                    shortestDistance = distance;
+                    closestWaypoint = &original;
+                }
             }
-            else if (this->particles[i].array[j].x < (this->rrtStarPath->array[j].x - this->widthBound))
+            if (isOutside)
             {
-                this->particles[i].array[j].x = (this->rrtStarPath->array[j].x - this->widthBound);
-            }
-            if (this->particles[i].array[j].y > (this->rrtStarPath->array[j].y + this->heightBound))
-            {
-                this->particles[i].array[j].y = (this->rrtStarPath->array[j].y + this->heightBound);
-            }
-            else if (this->particles[i].array[j].y < (this->rrtStarPath->array[j].y - this->heightBound))
-            {
-                this->particles[i].array[j].y = (this->rrtStarPath->array[j].y - this->heightBound);
+                current.x = closestWaypoint->x;
+                current.y = closestWaypoint->y;
             }
         }
-        
     }
 }
 
@@ -244,7 +298,7 @@ void WOA::RenderParticles()
             x = XConvertToPixel(this->particles[i].array[j].x);
             y = YConvertToPixel(this->particles[i].array[j].y);
             cv::Point q(x, y);
-            line(image, p, q, cv::Scalar(0x4B, 0x42, 0x3E), 1, cv::LINE_AA);
+            line(image, p, q, cv::Scalar(0x00, 0x00, 0xFF), 1, cv::LINE_AA);
         }
     }
     for (int j = 1; j < this->size; ++j)
@@ -255,7 +309,7 @@ void WOA::RenderParticles()
         x = XConvertToPixel(this->best->array[j].x);
         y = YConvertToPixel(this->best->array[j].y);
         cv::Point q(x, y);
-        line(image, p, q, cv::Scalar(0x43, 0xB0, 0x3C), 5, cv::LINE_AA);
+        line(image, p, q, cv::Scalar(0x00, 0xFF, 0x00), 2, cv::LINE_AA);
     }
 
     /// Goal configuration
@@ -356,7 +410,7 @@ bool WOA::OnSegment(cv::Point& p, cv::Point& q, cv::Point& r)
 bool WOA::IsObstacleFree(State& sNew, State& sNeighbor)
 {
     #ifdef DEBUG
-        static Logger log("IsObstacleFree [Segment]");
+        static Logger log("IsObstacleFree [Segment]x");
     #endif
     int pX = XConvertToPixel(sNew.x);
     int pY = YConvertToPixel(sNew.y);
@@ -378,4 +432,20 @@ bool WOA::IsObstacleFree(State& sNew, State& sNeighbor)
         log.trace("Segment p(x:{:+.2f}, y:{:+.2f}) q(x:{:+.2f}, y:{:+.2f}) is free", sNew.x, sNew.y, sNeighbor.x, sNeighbor.y);
     #endif
     return true;
+}
+
+void WOA::SaveGreatest()
+{
+    for (int i = 0; i < this->size; ++i)
+    {
+        this->greatest.array[i] = this->best->array[i];
+    }
+}
+
+void WOA::LoadGreatest()
+{
+    for (int i = 0; i < this->size; ++i)
+    {
+        this->best->array[i] = this->greatest.array[i];
+    }
 }

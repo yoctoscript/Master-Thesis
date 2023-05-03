@@ -27,7 +27,8 @@ class WOA
             this->iterations = this->_iterations;
             this->heightBound = mySettings["WOA_height_bound"];
             this->widthBound = mySettings["WOA_width_bound"];
-            this->shortnessWeight = mySettings["WOA_shortness_weight"];
+            this->pathShortnessWeight = mySettings["WOA_path_shortness_weight"];
+            this->collisionFreeWeight = mySettings["WOA_collision_free_weight"];
             #ifdef DEBUG
                 log.trace("a: {:.2f} | population: {} | iterations: {}", this->_a, this->population, this->iterations);
             #endif
@@ -39,6 +40,7 @@ class WOA
         Path* particles;
         Path* random;
         Path* best;
+        Path greatest;
         int i;
         int population;
         int _iterations; /// Constant
@@ -53,9 +55,11 @@ class WOA
         long double b;
         long double heightBound;
         long double widthBound;
-        long double shortnessWeight;
-        long double collisionWeight;
+        long double pathShortnessWeight;
+        long double collisionFreeWeight;
         long double bestFitness;
+        long double greatestFitness;
+        long double shortestLength;
         /// Methods.
         void InitializePopulation();
         void CalculateFitness();
@@ -66,6 +70,7 @@ class WOA
         void CheckBoundary();
         void RenderParticles();
         void CleanUp();
+
         /// Helper methods.
         long double GenerateRandom(long double a, long double b);
         int GenerateRandom(int a, int b);
@@ -79,5 +84,7 @@ class WOA
         bool DoIntersect(cv::Point& p1, cv::Point& q1, cv::Point& p2, cv::Point& q2);
         int Orientation(cv::Point& p, cv::Point& q, cv::Point& r);
         bool OnSegment(cv::Point& p, cv::Point& q, cv::Point& r);
+        void SaveGreatest();
+        void LoadGreatest();
 };
 #endif
